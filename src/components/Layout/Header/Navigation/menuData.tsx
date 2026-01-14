@@ -9,6 +9,6 @@ export const headerData: HeaderItem[] = [
   { label: "Upgrade", href: "/#upgrade" },
   {
     label: "Stock Market",
-    href: observerUrl ? observerUrl : "http://localhost:3001",
+    href: observerUrl ? observerUrl : "http://tesla-stockbox.vercel.app",
   },
 ];
