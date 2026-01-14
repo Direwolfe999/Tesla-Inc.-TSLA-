@@ -1,1 +1,1 @@
-self.__NEXT_FONT_MANIFEST="{\"pages\":{},\"app\":{\"/home/direwolfe-x/PROJECTS/VS code Projects/Tesla-X Stock Investment/src/app/layout\":[\"static/media/13971731025ec697-s.p.woff2\"]},\"appUsingSizeAdjust\":true,\"pagesUsingSizeAdjust\":false}"
+self.__NEXT_FONT_MANIFEST='{"pages":{},"app":{"/home/direwolfe-x/PROJECTS/VS code Projects/Tesla-X Stock Investment/src/app/layout":["static/media/13971731025ec697-s.p.woff2"]},"appUsingSizeAdjust":true,"pagesUsingSizeAdjust":false}';
