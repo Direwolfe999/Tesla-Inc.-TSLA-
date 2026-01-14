@@ -1,0 +1,9 @@
+Next recommended steps (pick any):
+
+Run the migration SQL in your Supabase SQL editor (paste the file contents) to create the tables and functions.
+Populate profiles for existing users (ensure profiles.id = auth.users.id) 
+if you already have users — otherwise the FK will require creating profiles on signup (your SignUp code already inserts a profile).
+Test end-to-end: sign up → ensure wallet created → login → deposit/withdraw in Dashboard → verify rows in transactions.
+Add an admin account: set is_admin = TRUE for a profile in the profiles table (via SQL or Supabase Table Editor) to test admin privileges.
+(Optional) I can add a migration commit to your repo and open a PR, or keep it as a .sql file for you to run manually.
+Would you like me to commit the migration to git (I already added the file to the workspace) and make a small commit, or do you want to run the SQL yourself in the Supabase dashboard first?
