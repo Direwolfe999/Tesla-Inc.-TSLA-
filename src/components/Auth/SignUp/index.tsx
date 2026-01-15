@@ -84,11 +84,11 @@ const SignUp = () => {
       router.push("/dashboard");
     } catch (err: any) {
       console.error("SignUp handler error:", err);
-      toast.error(err?.message || "Something went wrong. Please check console for details.");
+      toast.error(err?.message || "Something went wrong. Please reload and try again.");
     } finally {
       setLoading(false);
     }
-  };
+  }; 
 
 
   return (
