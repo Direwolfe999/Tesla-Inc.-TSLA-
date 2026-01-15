@@ -81,7 +81,7 @@ const SignUp = () => {
       }
 
       toast.success("Successfully registered!");
-      router.push("/auth/signin");
+      router.push("/dashboard");
     } catch (err: any) {
       console.error("SignUp handler error:", err);
       toast.error(err?.message || "Something went wrong. Please check console for details.");
