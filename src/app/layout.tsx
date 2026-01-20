@@ -8,17 +8,19 @@ import Aoscompo from "@/utils/aos";
 import ToasterContext from "@/app/api/contex/ToasetContex";
 import "swiper/css";
 
+import LayoutWrapper from "@/components/LayoutWrapper";
+
 const font = DM_Sans({ subsets: ["latin"] });
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${font.className} bg-gradient-to-b from-slate-900 to-indigo-950  text-white min-h-screen`}
+        className={`${font.className} bg-gradient-to-b from-slate-900 to-indigo-950 text-white min-h-screen`}
       >
         <ThemeProvider
           attribute="class"
@@ -26,9 +28,7 @@ export default function RootLayout({
           defaultTheme="system"
         >
           <Aoscompo>
-            <Header />
-            {children}
-            <Footer />
+            <LayoutWrapper>{children}</LayoutWrapper>
           </Aoscompo>
           <ToasterContext />
           <ScrollToTop />

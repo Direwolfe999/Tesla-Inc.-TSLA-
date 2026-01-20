@@ -308,7 +308,7 @@ const ProfilePage = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 mt-20 md:mt-40 text-white">
+    <div className="max-w-4xl mx-auto p-4 md:p-6 mt-10 md:mt-10 text-white">
       <h1 className="text-2xl md:text-3xl font-bold mb-6">Profile</h1>
       <div className="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
         <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
@@ -515,7 +515,7 @@ const ProfilePage = () => {
             </div>
           </div>
         )}
-        // Settings Tab
+       
         {activeTab === "settings" && (
           <div className="w-full max-w-md">
             {/* Settings form */}

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getImagePrefix } from "@/utils/utils";
 
+
 const NotFound = () => {
   return (
     <section className="bg-white pt-8 pb-20">
@@ -11,7 +12,7 @@ const NotFound = () => {
           <div className="w-full px-4 md:w-5/12 lg:w-6/12">
             <div className="relative mx-auto aspect-[129/138] max-w-[357px] text-center">
               <Image
-                src= {`${getImagePrefix()}images/404.svg`}
+                src={`${getImagePrefix()}images/work/404.svg`}
                 alt="image"
                 width={0}
                 height={0}
@@ -29,7 +30,7 @@ const NotFound = () => {
                   height="132"
                   viewBox="0 0 327 132"
                   fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
+                  // xmlns="http://www.w3.org/2000/svg"
                 >
                   <mask
                     id="path-1-outside-1_2014_12631"
@@ -58,11 +59,11 @@ const NotFound = () => {
                 We Can&#39;t Seem to Find The Page You&#39;re Looking For.
               </h3>
               <p className="mb-8 text-base text-body-color dark:text-dark-6">
-                Oops! There is a  problem with the server please refresh the page or contact our support team if the problem
-                persists.
+                Oops! There is a problem with the server please refresh the page
+                or contact our support team if the problem persists.
               </p>
               <Link
-                href="/"
+                href="/#main-banner"
                 className="rounded-md px-7 py-3 text-base font-medium text-white transition hover:bg-blue-700 bg-primary"
               >
                 Go To Home

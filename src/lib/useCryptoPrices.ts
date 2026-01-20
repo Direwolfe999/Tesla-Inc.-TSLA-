@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+import { useEffect, useState } from "react";
+import axios from "axios";
 import { supabase } from "@/lib/supabaseClient";
 
 interface Coin {
@@ -8,99 +8,136 @@ interface Coin {
   price: number;
 }
 
+interface CacheData {
+  timestamp: number;
+  coins: Coin[];
+}
+
+const CACHE_KEY = "crypto_prices_cache";
 const CACHE_TTL = 3 * 60 * 1000; // 3 minutes
 
-const useCryptoPrices = (): Coin[] => {
+const CRYPTO_IDS = [
+  "bitcoin",
+  "ethereum",
+  "cardano",
+  "polkadot",
+  "solana",
+  "dogecoin",
+  "avalanche-2",
+  "chainlink",
+  "litecoin",
+  "matic-network",
+  "shiba-inu",
+];
+
+const STOCK_SYMBOLS = ["AAPL", "MSFT", "NVDA", "JPM", "V", "PYPL", "TSLA"];
+const ALPHA_VANTAGE_API_KEY = "HBWKBIE9AIF6IQMO";
+
+const useCryptoPrices = () => {
   const [coins, setCoins] = useState<Coin[]>([]);
-
-  const cryptoIds = [
-    'bitcoin', 'ethereum', 'cardano', 'polkadot', 'avalanche-2', 'chainlink', 'litecoin', 'stellar', 'dogecoin', 'solana', 'matic-network', 'shiba-inu', 'tron', 'eos', 'monero', 'dash', 'zcash', 'bitcoin-cash', 'ethereum-classic', 'neo', 'nem', 'stellar-lumens', 'waves', 'qtum', 'komodo', 'steem', 'stratis', 'verge', 'pivx', 'reddcoin', 'binancecoin', 'uniswap', 'chainlink', 'aave', 'cosmos', 'tezos', 'theta', 'hedera-hashgraph', 'vechain', 'icon', 'waves', 'komodo', 'stratis',
-  ];
-
-  const alphaVantageApiKey = 'HBWKBIE9AIF6IQMO';
-
-  const stockSymbols = [
-    'AAPL', 'MSFT', 'NVDA', 'JPM', 'V', 'PYPL', 'TSLA'
-  ];
+  const [loading, setLoading] = useState(true);
 
   const fetchPrices = async () => {
-    try {
-      const cachedPrices = localStorage.getItem('prices');
-      const cachedTimestamp = localStorage.getItem('timestamp');
+    setLoading(true);
 
-      if (cachedPrices && cachedTimestamp) {
-        const timestamp = parseInt(cachedTimestamp, 10);
-        if (Date.now() - timestamp < CACHE_TTL) {
-          setCoins(JSON.parse(cachedPrices));
+    try {
+      /* ---------- CACHE ---------- */
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const parsed: CacheData = JSON.parse(cached);
+        if (Date.now() - parsed.timestamp < CACHE_TTL) {
+          setCoins(parsed.coins);
+          setLoading(false);
           return;
         }
       }
 
+      /* ---------- CRYPTO ---------- */
       const { data: cryptoData } = await axios.get(
-        `https://api.coingecko.com/api/v3/coins/markets`,
+        "https://api.coingecko.com/api/v3/coins/markets",
         {
           params: {
-            vs_currency: 'usd',
-            ids: cryptoIds.join(','),
+            vs_currency: "usd",
+            ids: CRYPTO_IDS.join(","),
           },
         }
       );
 
-      const stockData = await Promise.all(stockSymbols.map(async (symbol) => {
-        const { data } = await axios.get(
-          `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${alphaVantageApiKey}`
-        );
-
-        if (data['Global Quote'] && data['Global Quote']['01. symbol'] && data['Global Quote']['05. price']) {
-          return {
-            symbol: symbol + '/USD',
-            name: data['Global Quote']['01. symbol'],
-            price: parseFloat(data['Global Quote']['05. price']),
-          };
-        } else {
-          console.error(`Error fetching ${symbol} price:`, data);
-          return {
-            symbol: symbol + '/USD',
-            name: symbol,
-            price: 0,
-          };
-        }
+      const cryptoCoins: Coin[] = cryptoData.map((coin: any) => ({
+        symbol: `${coin.symbol.toUpperCase()}/USD`,
+        name: coin.name,
+        price: coin.current_price,
       }));
 
-      const prices = [
-        ...cryptoData.map((coin: any) => ({
-          symbol: coin.symbol + '/USD',
-          name: coin.name,
-          price: coin.current_price,
-        })),
-        ...stockData,
-      ];
+      /* ---------- STOCKS ---------- */
+      const stockCoins: Coin[] = await Promise.all(
+        STOCK_SYMBOLS.map(async (symbol) => {
+          try {
+            const { data } = await axios.get(
+              "https://www.alphavantage.co/query",
+              {
+                params: {
+                  function: "GLOBAL_QUOTE",
+                  symbol,
+                  apikey: ALPHA_VANTAGE_API_KEY,
+                },
+              }
+            );
 
-      localStorage.setItem('prices', JSON.stringify(prices));
-      localStorage.setItem('timestamp', Date.now().toString());
+            const quote = data?.["Global Quote"];
+            if (!quote?.["05. price"]) throw new Error("Invalid response");
 
+            return {
+              symbol: `${symbol}/USD`,
+              name: symbol,
+              price: parseFloat(quote["05. price"]),
+            };
+          } catch {
+            return {
+              symbol: `${symbol}/USD`,
+              name: symbol,
+              price: 0,
+            };
+          }
+        })
+      );
+
+      const prices: Coin[] = [...cryptoCoins, ...stockCoins];
+
+      /* ---------- SAVE CACHE ---------- */
+      localStorage.setItem(
+        CACHE_KEY,
+        JSON.stringify({
+          timestamp: Date.now(),
+          coins: prices,
+        })
+      );
+
+      setCoins(prices);
+
+      /* ---------- OPTIONAL: UPSERT TO SUPABASE ---------- */
       for (const coin of prices) {
-        await supabase
-          .from("coins")
-          .upsert({ symbol: coin.symbol, name: coin.name, price: coin.price });
+        await supabase.from("coins").upsert({
+          symbol: coin.symbol,
+          name: coin.name,
+          price: coin.price,
+        });
       }
-
-      const { data: updatedCoins } = await supabase.from("coins").select("*");
-      if (updatedCoins) {
-        setCoins(updatedCoins as Coin[]);
-      }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error("Failed to fetch prices:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchPrices();
-    const interval = setInterval(fetchPrices, 60000);
+
+    const interval = setInterval(fetchPrices, 60_000); // refresh every 1 min
     return () => clearInterval(interval);
   }, []);
 
-  return coins;
+  return { coins, loading };
 };
 
 export default useCryptoPrices;

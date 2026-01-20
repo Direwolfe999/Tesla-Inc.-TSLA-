@@ -12,22 +12,21 @@ interface Coin {
 
 const BuyCrypto = () => {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<{
-    name: string;
-    symbol: string;
-    price: number;
-    amount: string;
-  }>({
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+
+  const [formData, setFormData] = useState({
     name: "",
     symbol: "",
     price: 0,
     amount: "",
   });
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const [walletBalance, setWalletBalance] = useState(0);
-  const coins = useCryptoPrices();
 
+  // ✅ FIX: Correctly destructure hook
+  const { coins, loading: coinsLoading } = useCryptoPrices();
+
+  /* ---------------- AUTH ---------------- */
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
@@ -38,23 +37,25 @@ const BuyCrypto = () => {
     });
   }, []);
 
+  /* ---------------- WALLET ---------------- */
   useEffect(() => {
-    if (user?.id) {
-      supabase
-        .from("wallets")
-        .select("balance")
-        .eq("user_id", user.id)
-        .single()
-        .then(({ data }) => {
-          if (data) setWalletBalance(data.balance);
-        });
-    }
+    if (!user?.id) return;
+
+    supabase
+      .from("wallets")
+      .select("balance")
+      .eq("user_id", user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setWalletBalance(data.balance);
+      });
   }, [user]);
 
   useEffect(() => {
     if (!user?.id) return;
+
     const channel = supabase
-      .channel("wallets")
+      .channel("wallet-updates")
       .on(
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "wallets" },
@@ -62,14 +63,16 @@ const BuyCrypto = () => {
           if (payload.new.user_id === user.id) {
             setWalletBalance(payload.new.balance);
           }
-        }
+        },
       )
       .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user?.id]);
 
+  /* ---------------- HANDLERS ---------------- */
   const handleDropdownSelect = (coin: Coin) => {
     setFormData((prev) => ({
       ...prev,
@@ -80,23 +83,25 @@ const BuyCrypto = () => {
     setIsDropdownOpen(false);
   };
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (name === "amount") setFormData((prev) => ({ ...prev, amount: value }));
+    if (name === "amount") {
+      setFormData((prev) => ({ ...prev, amount: value }));
+    }
   };
 
   const totalCost = formData.amount
-    ? (formData.price * parseFloat(formData.amount)).toFixed(2)
+    ? (formData.price * Number(formData.amount)).toFixed(2)
     : "0.00";
 
+  /* ---------------- WALLET ENSURE ---------------- */
   const ensureWallet = async (userId: string) => {
     const { data, error } = await supabase
       .from("wallets")
       .select("*")
       .eq("user_id", userId)
       .single();
+
     if (error && error.code === "PGRST116") {
       const { error: insertError } = await supabase
         .from("wallets")
@@ -105,19 +110,26 @@ const BuyCrypto = () => {
     } else if (error) {
       throw error;
     }
-    return true;
   };
 
+  /* ---------------- SUBMIT ---------------- */
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
     if (!user) return toast.error("Please sign in first");
+    if (!formData.symbol) return toast.error("Select a coin");
     if (!formData.amount || Number(formData.amount) <= 0)
       return toast.error("Enter a valid amount");
-    if (walletBalance < formData.price * Number(formData.amount))
-      return toast.error("Insufficient balance");
+
+    const total = formData.price * Number(formData.amount);
+    if (walletBalance < total)
+      return toast.error("Insufficient wallet balance");
+
     setLoading(true);
+
     try {
       await ensureWallet(user.id);
+
       const { error } = await supabase.rpc("buy_crypto", {
         p_user_id: user.id,
         p_asset: formData.symbol,
@@ -125,7 +137,9 @@ const BuyCrypto = () => {
         p_price: formData.price,
         p_max_slippage: 1.05,
       });
+
       if (error) throw error;
+
       toast.success(`${formData.name} purchased successfully!`);
       setFormData((prev) => ({ ...prev, amount: "" }));
     } catch (err: any) {
@@ -135,31 +149,43 @@ const BuyCrypto = () => {
     }
   };
 
+  /* ---------------- UI ---------------- */
   return (
     <div className="max-w-md mx-auto p-4">
       <div className="flex justify-center mb-16">
         <Logo />
       </div>
+
       <div className="mb-4 text-white">
         <p>Wallet Balance: ${walletBalance.toLocaleString()}</p>
       </div>
+
       <form onSubmit={handleSubmit}>
+        {/* ---------- DROPDOWN ---------- */}
         <div className="mb-4 relative">
           <div
-            onClick={() => setIsDropdownOpen((prev) => !prev)}
-            className="cursor-pointer text-white bg-transparent border border-dark_border border-opacity-60 rounded-md px-3 py-2 text-start flex justify-between items-center"
+            onClick={() => {
+              if (!coinsLoading) setIsDropdownOpen((prev) => !prev);
+            }}
+            className={`cursor-pointer text-white bg-transparent border border-dark_border border-opacity-60 rounded-md px-3 py-2 flex justify-between items-center ${
+              coinsLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
-            {formData.name}
-            <span className="ml-2">{isDropdownOpen ? "▲" : "▼"}</span>
+            {formData.name ||
+              (coinsLoading ? "Loading coins..." : "Select asset")}
+            <span>{isDropdownOpen ? "▲" : "▼"}</span>
           </div>
+
           {isDropdownOpen && (
             <div className="absolute z-10 bg-dark border border-dark_border border-opacity-60 mt-1 rounded-md w-full max-h-48 overflow-y-auto">
-              {coins.length > 0 ? (
+              {coinsLoading ? (
+                <div className="px-3 py-2 text-white">Loading coins...</div>
+              ) : coins.length > 0 ? (
                 coins.map((coin) => (
                   <div
                     key={coin.symbol}
                     onClick={() => handleDropdownSelect(coin)}
-                    className="px-3 bg-dark_grey text-white hover:text-darkmode py-2 hover:bg-primary cursor-pointer"
+                    className="px-3 py-2 bg-dark_grey text-white hover:bg-primary hover:text-darkmode cursor-pointer"
                   >
                     {coin.name}
                   </div>
@@ -170,16 +196,18 @@ const BuyCrypto = () => {
             </div>
           )}
         </div>
+
+        {/* ---------- PRICE ---------- */}
         <div className="mb-4">
           <input
             type="text"
-            name="price"
-            className="text-white bg-transparent border border-dark_border border-opacity-60 rounded-md px-3 py-2 w-full focus:border-primary focus-visible:outline-0"
             value={`$${formData.price.toLocaleString()}`}
             disabled
-            required
+            className="text-white bg-transparent border border-dark_border border-opacity-60 rounded-md px-3 py-2 w-full"
           />
         </div>
+
+        {/* ---------- AMOUNT ---------- */}
         <div className="mb-4">
           <input
             type="number"
@@ -188,18 +216,22 @@ const BuyCrypto = () => {
             value={formData.amount}
             onChange={handleChange}
             min="0"
+            className="text-white bg-transparent border border-dark_border border-opacity-60 rounded-md px-3 py-2 w-full"
             required
-            className="text-white bg-transparent border border-dark_border border-opacity-60 rounded-md px-3 py-2 w-full focus:border-primary focus-visible:outline-0"
           />
         </div>
+
+        {/* ---------- TOTAL ---------- */}
         <div className="flex justify-between mb-4 text-white">
-          <p>Total Cost: </p>
+          <p>Total Cost:</p>
           <p>${totalCost}</p>
         </div>
+
+        {/* ---------- SUBMIT ---------- */}
         <button
           type="submit"
-          className="text-darkmode font-medium text-18 bg-primary w-full border border-primary rounded-lg py-3 hover:text-primary hover:bg-transparent"
           disabled={loading}
+          className="text-darkmode font-medium text-18 bg-primary w-full border border-primary rounded-lg py-3 hover:bg-transparent hover:text-primary"
         >
           {loading ? "Processing..." : "Buy"}
         </button>
