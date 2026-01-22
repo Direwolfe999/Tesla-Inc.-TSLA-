@@ -10,11 +10,14 @@ interface Coin {
   price: number;
 }
 
-const BuyCrypto = () => {
+interface BuyCryptoProps {
+  balance: number; // ✅ comes from Dashboard (single source of truth)
+}
+
+const BuyCrypto = ({ balance }: BuyCryptoProps) => {
   const [loading, setLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [walletBalance, setWalletBalance] = useState(0);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -23,7 +26,6 @@ const BuyCrypto = () => {
     amount: "",
   });
 
-  // ✅ FIX: Correctly destructure hook
   const { coins, loading: coinsLoading } = useCryptoPrices();
 
   /* ---------------- AUTH ---------------- */
@@ -36,41 +38,6 @@ const BuyCrypto = () => {
       setUser(session.user);
     });
   }, []);
-
-  /* ---------------- WALLET ---------------- */
-  useEffect(() => {
-    if (!user?.id) return;
-
-    supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) setWalletBalance(data.balance);
-      });
-  }, [user]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel("wallet-updates")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "wallets" },
-        (payload: any) => {
-          if (payload.new.user_id === user.id) {
-            setWalletBalance(payload.new.balance);
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
 
   /* ---------------- HANDLERS ---------------- */
   const handleDropdownSelect = (coin: Coin) => {
@@ -96,13 +63,13 @@ const BuyCrypto = () => {
 
   /* ---------------- WALLET ENSURE ---------------- */
   const ensureWallet = async (userId: string) => {
-    const { data, error } = await supabase
+    const { error } = await supabase
       .from("wallets")
-      .select("*")
+      .select("id")
       .eq("user_id", userId)
       .single();
 
-    if (error && error.code === "PGRST116") {
+    if (error?.code === "PGRST116") {
       const { error: insertError } = await supabase
         .from("wallets")
         .insert([{ user_id: userId, balance: 0 }]);
@@ -122,8 +89,7 @@ const BuyCrypto = () => {
       return toast.error("Enter a valid amount");
 
     const total = formData.price * Number(formData.amount);
-    if (walletBalance < total)
-      return toast.error("Insufficient wallet balance");
+    if (balance < total) return toast.error("Insufficient wallet balance");
 
     setLoading(true);
 
@@ -142,6 +108,7 @@ const BuyCrypto = () => {
 
       toast.success(`${formData.name} purchased successfully!`);
       setFormData((prev) => ({ ...prev, amount: "" }));
+      // ✅ DO NOT update balance here — realtime handles it
     } catch (err: any) {
       toast.error(err.message || "Purchase failed");
     } finally {
@@ -157,7 +124,7 @@ const BuyCrypto = () => {
       </div>
 
       <div className="mb-4 text-white">
-        <p>Wallet Balance: ${walletBalance.toLocaleString()}</p>
+        <p>Wallet Balance: ${balance.toLocaleString()}</p>
       </div>
 
       <form onSubmit={handleSubmit}>

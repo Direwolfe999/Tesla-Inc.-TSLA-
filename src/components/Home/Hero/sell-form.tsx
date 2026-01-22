@@ -10,11 +10,14 @@ interface Coin {
   price: number;
 }
 
-const SellCrypto = () => {
+interface SellCryptoProps {
+  balance: number; // ✅ comes from Dashboard (single source of truth)
+}
+
+const SellCrypto = ({ balance }: SellCryptoProps) => {
   const [loading, setLoading] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [walletBalance, setWalletBalance] = useState(0);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -23,7 +26,6 @@ const SellCrypto = () => {
     amount: "",
   });
 
-  // ✅ FIX: Correct hook usage
   const { coins, loading: coinsLoading } = useCryptoPrices();
 
   /* ---------------- AUTH ---------------- */
@@ -36,41 +38,6 @@ const SellCrypto = () => {
       setUser(session.user);
     });
   }, []);
-
-  /* ---------------- WALLET ---------------- */
-  useEffect(() => {
-    if (!user?.id) return;
-
-    supabase
-      .from("wallets")
-      .select("balance")
-      .eq("user_id", user.id)
-      .single()
-      .then(({ data }) => {
-        if (data) setWalletBalance(data.balance);
-      });
-  }, [user]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const channel = supabase
-      .channel("wallet-updates")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "wallets" },
-        (payload: any) => {
-          if (payload.new.user_id === user.id) {
-            setWalletBalance(payload.new.balance);
-          }
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
 
   /* ---------------- HANDLERS ---------------- */
   const handleDropdownSelect = (coin: Coin) => {
@@ -118,6 +85,7 @@ const SellCrypto = () => {
 
       toast.success(`${formData.name} sold successfully!`);
       setFormData((prev) => ({ ...prev, amount: "" }));
+      // ✅ DO NOT update balance here — realtime handles it
     } catch (err: any) {
       toast.error(err.message || "Sell failed");
     } finally {
@@ -133,7 +101,7 @@ const SellCrypto = () => {
       </div>
 
       <div className="mb-4 text-white">
-        <p>Wallet Balance: ${walletBalance.toLocaleString()}</p>
+        <p>Wallet Balance: ${balance.toLocaleString()}</p>
       </div>
 
       <form onSubmit={handleSubmit}>

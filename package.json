@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@iconify/react": "^5.0.1",
-    "@supabase/supabase-js": "^2.90.1",
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.91.0",
     "aos": "^2.3.4",
     "autoprefixer": "^10.4.23",
     "axios": "^1.13.2",
