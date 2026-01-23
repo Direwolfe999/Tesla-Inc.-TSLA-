@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Pagination } from "swiper/modules";
 import { CSVLink } from "react-csv";
-// import DashboardLayout from "@/components/LayoutWrapper";
+
 import DepositForm from "@/components/Home/Hero/deposit-form";
 import WithdrawForm from "@/components/Home/Hero/withdraw-form";
 
@@ -45,20 +45,76 @@ const Dashboard = () => {
   const [visibleNews, setVisibleNews] = useState(6);
 const [isDepositOpen, setIsDepositOpen] = useState(false);
 const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  const fetchNews = async () => {
-    try {
-      const response = await fetch("/api/stock-news");
-      const data = await response.json();
+  
+const fetchNews = async () => {
+  /* -------- Alpha Vantage -------- */
+  const fetchAlphaVantage = async () => {
+    const res = await fetch(
+      `https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=TSLA&apikey=${process.env.NEXT_PUBLIC_ALPHAVANTAGE_API_KEY}`
+    );
 
-      if (Array.isArray(data)) {
-        setNews(data);
-      } else {
-        console.error("Invalid API response:", data);
-      }
-    } catch (error) {
-      console.error("News fetch error:", error);
+    const data = await res.json();
+
+    if (!data.feed || !Array.isArray(data.feed)) {
+      throw new Error("Alpha Vantage failed");
     }
+
+    return data.feed.map((item: any) => ({
+      title: item.title,
+      url: item.url,
+      summary: item.summary,
+      banner_image: item.banner_image,
+    }));
   };
+
+  /* -------- NewsAPI Fallback -------- */
+ const fetchMarketAux = async () => {
+   const res = await fetch(
+     `https://api.marketaux.com/v1/news/all?symbols=TSLA&filter_entities=true&language=en&api_token=${process.env.NEXT_PUBLIC_MARKETAUX_KEY}`,
+   );
+
+   const data = await res.json();
+
+   if (!data.data || !Array.isArray(data.data)) {
+     throw new Error("MarketAux failed");
+   }
+
+   return data.data.map((item: any) => ({
+     title: item.title,
+     url: item.url,
+     summary: item.description,
+     banner_image: item.image_url,
+   }));
+ };
+
+
+  /* -------- Static Fallback -------- */
+  const staticFallback = [
+    {
+      title: "Tesla launches new Cybertruck",
+      url: "https://www.tesla.com/cybertruck",
+      summary: "Tesla unveils new Cybertruck with updated features.",
+      banner_image: "/images/tesla-cybertruck.jpg",
+    },
+  ];
+
+  try {
+    const alphaNews = await fetchAlphaVantage();
+    setNews(alphaNews);
+  } catch (alphaError) {
+    console.warn("Alpha Vantage failed → trying NewsAPI");
+
+    try {
+      const marketAuxNews = await fetchMarketAux();
+      setNews(marketAuxNews);
+    } catch (marketAuxError) {
+      console.error("Both news sources failed", marketAuxError);
+      setNews(staticFallback);
+    }
+  }
+};
+
+
 
 
 
