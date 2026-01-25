@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 import { Line } from "react-chartjs-2";
@@ -7,12 +7,10 @@ import { Pie } from "react-chartjs-2";
 import { Chart, registerables } from "chart.js";
 Chart.register(...registerables);
 
-// Define Asset type
 interface Asset {
   id: number;
   asset: string;
   amount: number;
-  // Add other properties as needed
 }
 
 const ProfilePage = () => {
@@ -24,57 +22,95 @@ const ProfilePage = () => {
   const [profilePic, setProfilePic] = useState("");
   const [portfolioValue, setPortfolioValue] = useState(0);
   const [returns, setReturns] = useState(0);
-  const [rank, setRank] = useState(0);
+  const [rank, setRank] = useState<number | null>(null);
+
   const [activeTab, setActiveTab] = useState("overview");
   const [assets, setAssets] = useState<any[]>([]);
+
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [priceAlertEnabled, setPriceAlertEnabled] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const chartOptions = {
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
-  };
-  const chartData = {
-    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    datasets: [
-      {
-        label: "Portfolio Value",
-        data: [1000, 1200, 1500, 1800, 2000, 2200],
-        backgroundColor: "rgba(255, 99, 132, 0.2)",
-        borderColor: "rgba(255, 99, 132, 1)",
-        borderWidth: 1,
-      },
-    ],
+  const [bio, setBio] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
+
+  const sortedTransactions = useMemo(() => {
+    return [...transactions].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+  }, [transactions]);
+
+  const getPortfolioTimeline = (txs: any[]) => {
+    let total = 0;
+
+    return txs.map((tx) => {
+      if (tx.type === "buy") {
+        total += tx.amount * tx.price;
+      } else if (tx.type === "sell") {
+        total -= tx.amount * tx.price;
+      }
+      return Number(total.toFixed(2));
+    });
   };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) return router.push("/auth/signin");
       setUser(data.session.user);
-      fetchProfile(data.session.user?.id);
+      fetchProfile(data.session.user.id);
     });
   }, []);
+  // Verification with email
+  useEffect(() => {
+    const fetchUserVerification = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+      if (error) {
+        console.error("Error fetching user:", error);
+        return;
+      }
+      if (!user) return;
 
+      // Supabase sets `email_confirmed_at` when the user clicks the verification link
+      setIsVerified(!!user.email_confirmed_at);
+    };
+    fetchUserVerification();
+  }, []);
+
+  useEffect(() => {
+    const refreshUser = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+      if (!error && user) setIsVerified(!!user.email_confirmed_at);
+    };
+
+    const interval = setInterval(refreshUser, 5000); // check every 5s
+    return () => clearInterval(interval);
+  }, []);
+
+  // fetch profile for the user
   const fetchProfile = async (userId: string) => {
     try {
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
-        .eq("id", userId)
+        .eq("id", userId) // <-- changed from "user_id" to "id"
         .single();
+
       setProfile(profileData);
       setName(profileData.name || "");
       setEmail(profileData.email || "");
       setProfilePic(profileData.profile_pic_url || "");
+      setIsVerified(profileData.is_verified || false);
+      setBio(profileData.bio || "");
       setPortfolioValue(profileData.portfolio_value || 0);
       setReturns(profileData.returns || 0);
-      setRank(profileData.rank || 0);
-
-
-      
       const { data: assetsData } = await supabase
         .from("user_assets")
         .select("*")
@@ -124,21 +160,32 @@ const ProfilePage = () => {
     console.log("Saving profile pic:", profilePic);
   };
   const handleSave = async () => {
+    if (!user) return;
+
     try {
       const updates = {
         name,
         email,
         profile_pic_url: profilePic,
+        bio,
       };
 
-      await supabase.from("profiles").update(updates).eq("id", user?.id);
+      const { error } = await supabase
+        .from("profiles")
+        .update(updates)
+        .eq("id", user.id); // <-- use "id"
+
+      if (error) throw error;
+
+      await fetchProfile(user.id); // 🔑 rehydrate from DB
+      setIsEditingBio(false);
 
       alert("Profile updated!");
-      router.refresh(); // <--- Add this to refresh the page
     } catch (error) {
       console.error("Error updating profile:", error);
     }
   };
+
   // Password change, notification preferences, 2FA, linked accounts, delete account handlers would go here
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -239,8 +286,7 @@ const ProfilePage = () => {
     }
   };
 
-  // Price Alert Toggle
-  // Update the handleTogglePriceAlert function to store the new state in local storage
+  // Updated the handleTogglePriceAlert function to store the new state in local storage
   const handleTogglePriceAlert = async () => {
     const {
       data: { user },
@@ -262,6 +308,7 @@ const ProfilePage = () => {
       localStorage.setItem("priceAlertEnabled", "true");
     }
   };
+
   useEffect(() => {
     const fetchPriceAlertStatus = async () => {
       const {
@@ -287,8 +334,6 @@ const ProfilePage = () => {
     setSelectedAsset(asset);
   };
 
-  
-
   // Fetch linked accounts on load
   const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
   useEffect(() => {
@@ -300,13 +345,114 @@ const ProfilePage = () => {
     fetchLinkedAccounts();
   }, []);
 
-  const handleDeleteAccount = async () => {
-    await supabase.auth.admin.deleteUser(user?.id);
-    await supabase.auth.signOut();
-    // Redirect to login page or home
-    window.location.href = "/login";
+  // fetch ranks
+  const fetchRank = async (userId: string) => {
+    const { data: users, error } = await supabase
+      .from("profiles")
+      .select("id, portfolio_value")
+      .order("portfolio_value", { ascending: false });
+
+    if (error) {
+      console.error("Rank fetch error:", error);
+      return;
+    }
+
+    if (!users) return;
+
+    const userRank = users.findIndex((u) => u.id === userId) + 1;
+    setRank(userRank);
   };
 
+  // Call after fetching the profile
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchRank(user.id);
+  }, [user?.id, portfolioValue]);
+
+  // portfolio asset holding in dollars
+  useEffect(() => {
+    if (assets.length && transactions.length) {
+      const totalValue = assets.reduce((sum, asset) => {
+        const buys = transactions.filter(
+          (t) => t.asset === asset.asset && t.type === "buy",
+        );
+        const totalBought = buys.reduce((acc, t) => acc + t.amount, 0);
+        const totalCost = buys.reduce((acc, t) => acc + t.amount * t.price, 0);
+        const avgPrice = totalBought ? totalCost / totalBought : 0;
+        return sum + asset.amount * avgPrice;
+      }, 0);
+
+      setPortfolioValue(totalValue);
+    }
+  }, [assets, transactions]);
+
+  // resend verififcation email for user
+  const resendVerificationEmail = async () => {
+    if (!user?.email) return;
+
+    const { error } = await supabase.auth.updateUser(
+      { email: user.email }, // first argument: fields to update
+      { emailRedirectTo: `${window.location.origin}/profile` }, // second argument: options
+    );
+
+    if (error) {
+      alert("Failed to send verification email: " + error.message);
+    } else {
+      alert("Verification email sent! Check your inbox.");
+    }
+  };
+
+
+  // handle deletion of accounts
+  const handleDeleteAccount = async () => {
+    try {
+      const { error } = await supabase
+        .from("users")
+        .delete()
+        .eq("id", user?.id);
+      if (error) throw error;
+      await supabase.auth.signOut();
+      window.location.href = "/home";
+    } catch (error) {
+      console.error("Error deleting user:", error);
+    }
+  };
+
+  const filteredTransactions = transactions.filter((t) => t.amount && t.price);
+  // Profit/Loss summary
+  const totalCost = transactions
+    .filter((t) => t.type === "buy")
+    .reduce((sum, t) => sum + Number(t.amount) * Number(t.price), 0);
+
+  const totalSold = transactions
+    .filter((t) => t.type === "sell")
+    .reduce((sum, t) => sum + Number(t.amount) * Number(t.price), 0);
+
+  const profitLoss = portfolioValue - totalCost; // +ve is profit, -ve is loss
+  const profitPercentage = totalCost ? (profitLoss / totalCost) * 100 : 0;
+
+  // portfolio value summary
+
+  const portfolioChartData = useMemo(() => {
+    if (!sortedTransactions.length) return null;
+
+    return {
+      labels: sortedTransactions.map((t) =>
+        new Date(t.created_at).toLocaleDateString(),
+      ),
+      datasets: [
+        {
+          label: "Portfolio Value",
+          data: getPortfolioTimeline(sortedTransactions),
+          fill: true,
+          borderWidth: 2,
+          tension: 0.35,
+        },
+      ],
+    };
+  }, [sortedTransactions]);
+
+  // Render
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6 mt-10 md:mt-10 text-white">
       <h1 className="text-2xl md:text-3xl font-bold mb-6">Profile</h1>
@@ -329,21 +475,85 @@ const ProfilePage = () => {
           </div>
           <div className="text-center md:text-left">
             <h2 className="text-lg md:text-xl font-bold">{name}</h2>
-            <p className="text-gray-400">Verified Investor</p>
+
+            <div className="flex items-center gap-2 mt-1">
+              {isVerified ? (
+                <>
+                  {/* Verified Badge */}
+                  <span className="flex items-center text-xs font-medium text-blue-500 bg-blue-100/20 px-2 py-1 rounded-full">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 mr-1"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Verified
+                  </span>
+                  <p className="text-gray-400 text-sm">Verified Investor</p>
+                </>
+              ) : (
+                <>
+                  {/* Unverified Badge */}
+                  <span className="flex items-center text-xs font-medium text-gray-500 bg-gray-700/30 px-2 py-1 rounded-full">
+                    Unverified
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <p className="text-gray-400 text-sm">
+                      Complete email verification
+                    </p>
+                    <button
+                      onClick={resendVerificationEmail}
+                      className="text-blue-500 text-xs hover:underline"
+                    >
+                      Resend Email
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
+        </div>
+
+        {/* // Add bio input field */}
+        <div className="mb-4">
+          {isEditingBio ? (
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              className="w-full p-2 bg-gray-700 rounded"
+            />
+          ) : (
+            <p
+              className="p-2 bg-gray-700 rounded cursor-pointer"
+              onClick={() => setIsEditingBio(true)}
+            >
+              {bio || "Add a bio..."}
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-gray-700 p-4 rounded-lg">
             <p className="text-gray-400">Portfolio Value</p>
-            <p className="text-xl font-bold">${portfolioValue}</p>
+            <p className="text-xl font-bold">${portfolioValue.toFixed(2)}</p>
           </div>
           <div className="bg-gray-700 p-4 rounded-lg">
-            <p className="text-gray-400">Returns</p>
-            <p className="text-xl font-bold">{returns}%</p>
+            <p className="text-gray-400">Profit/Loss</p>
+            <p
+              className={`text-xl font-bold ${profitLoss >= 0 ? "text-green-500" : "text-red-500"}`}
+            >
+              {profitLoss >= 0 ? "+" : "-"}${Math.abs(profitLoss).toFixed(2)} (
+              {profitPercentage.toFixed(2)}%)
+            </p>
           </div>
           <div className="bg-gray-700 p-4 rounded-lg">
             <p className="text-gray-400">Rank</p>
-            <p className="text-xl font-bold">#{rank}</p>
+            <p className="text-xl font-bold">{rank ? `#${rank}` : "—"}</p>
           </div>
         </div>
         <div className="flex flex-wrap gap-2 mb-6">
@@ -365,12 +575,13 @@ const ProfilePage = () => {
           </button>
           <button
             className={`px-4 py-2 rounded-lg ${
-              activeTab === "history" ? "bg-blue-600" : "bg-gray-700"
+              activeTab === "insights" ? "bg-blue-600" : "bg-gray-700"
             }`}
-            onClick={() => setActiveTab("history")}
+            onClick={() => setActiveTab("insights")}
           >
-            History
+            Insights
           </button>
+
           <button
             className={`px-4 py-2 rounded-lg ${
               activeTab === "analytics" ? "bg-blue-600" : "bg-gray-700"
@@ -391,14 +602,81 @@ const ProfilePage = () => {
         {activeTab === "overview" && (
           <div>
             <h2 className="text-xl font-bold mb-4">Overview</h2>
-            <p>Portfolio Value: ${portfolioValue}</p>
-            <p>Returns: {returns}%</p>
-            <p>Rank: #{rank}</p>
-            <p>Number of Assets: {assets.length}</p>
-            <p>Number of Transactions: {transactions.length}</p>
-            <Line data={chartData} options={chartOptions} />
+
+            {/* Live Portfolio Chart */}
+            <div className="mb-4 h-64">
+              {portfolioChartData && (
+                <Line
+                  data={portfolioChartData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                      y: {
+                        ticks: {
+                          callback: (value) =>
+                            typeof value === "number"
+                              ? `$${value.toLocaleString()}`
+                              : `$${Number(value).toLocaleString()}`,
+                        },
+                      },
+                    },
+                    plugins: {
+                      tooltip: {
+                        mode: "index",
+                        intersect: false,
+                        callbacks: {
+                          label: (context) => {
+                            const y = context.parsed?.y;
+                            return y !== null && y !== undefined
+                              ? `$${Number(y).toLocaleString()}`
+                              : "$0";
+                          },
+                        },
+                      },
+                      legend: {
+                        display: false,
+                      },
+                    },
+                  }}
+                />
+              )}
+            </div>
+
+            {/* Recent Activity Feed */}
+            <div>
+              <h3 className="text-lg font-bold mb-2">Recent Activity</h3>
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {[...transactions]
+                  .sort(
+                    (a, b) =>
+                      new Date(b.created_at).getTime() -
+                      new Date(a.created_at).getTime(),
+                  )
+                  .slice(0, 10)
+                  .map((tx) => (
+                    <div
+                      key={tx.id}
+                      className={`flex justify-between p-2 rounded-md ${
+                        tx.type === "buy" ? "bg-green-600" : "bg-red-600"
+                      }`}
+                    >
+                      <div>
+                        <p className="font-bold">{tx.asset}</p>
+                        <p className="text-sm">
+                          {tx.type.toUpperCase()} {tx.amount} @ ${tx.price}
+                        </p>
+                      </div>
+                      <p className="text-sm">
+                        {new Date(tx.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            </div>
           </div>
         )}
+
         {activeTab === "portfolio" && (
           <div>
             <h2 className="text-xl font-bold mb-4">Portfolio</h2>
@@ -421,28 +699,112 @@ const ProfilePage = () => {
               <div className="mt-4 p-4 bg-gray-800 rounded">
                 <h3 className="text-lg font-bold">{selectedAsset.asset}</h3>
                 <p>Amount: {selectedAsset.amount}</p>
-                {/* <!-- Add more details here --> */}
+
+                {/* Asset Performance Chart */}
+                <Line
+                  data={{
+                    labels: transactions
+                      .filter((tx) => tx.asset === selectedAsset.asset)
+                      .sort(
+                        (a, b) =>
+                          new Date(a.created_at).getTime() -
+                          new Date(b.created_at).getTime(),
+                      )
+                      .map((tx) =>
+                        new Date(tx.created_at).toLocaleDateString(),
+                      ),
+                    datasets: [
+                      {
+                        label: selectedAsset.asset,
+                        data: (() => {
+                          let amt = 0;
+                          return transactions
+                            .filter((tx) => tx.asset === selectedAsset.asset)
+                            .sort(
+                              (a, b) =>
+                                new Date(a.created_at).getTime() -
+                                new Date(b.created_at).getTime(),
+                            )
+                            .map((tx) => {
+                              amt += tx.type === "buy" ? tx.amount : -tx.amount;
+                              return amt;
+                            });
+                        })(),
+                        backgroundColor: "rgba(255, 206, 86, 0.2)",
+                        borderColor: "rgba(255, 206, 86, 1)",
+                        borderWidth: 2,
+                        tension: 0.3,
+                      },
+                    ],
+                  }}
+                  options={{ scales: { y: { beginAtZero: true } } }}
+                />
               </div>
             )}
           </div>
         )}
-        {activeTab === "history" && (
-          <div>
-            <h2 className="text-xl font-bold mb-4">History</h2>
-            {transactions.length === 0 ? (
-              <p>No transactions found.</p>
-            ) : (
-              <ul>
-                {transactions.map((transaction) => (
-                  <li key={transaction.id}>
-                    {transaction.type}: {transaction.asset} -{" "}
-                    {transaction.amount} @ {transaction.price}
-                  </li>
-                ))}
-              </ul>
-            )}
+        {activeTab === "insights" && (
+          <div className="p-4">
+            <h2 className="text-xl font-bold mb-4">Insights</h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Individual Asset Performance */}
+              {assets.map((asset, idx) => (
+                <div
+                  key={asset.id || asset.asset + idx}
+                  className="p-4 bg-gray-800 rounded-lg h-64"
+                >
+                  <h3 className="text-lg font-bold mb-2">
+                    {asset.asset} Performance
+                  </h3>
+                  <Line
+                    data={{
+                      labels: transactions
+                        .filter((t) => t.asset === asset.asset)
+                        .sort(
+                          (a, b) =>
+                            new Date(a.created_at).getTime() -
+                            new Date(b.created_at).getTime(),
+                        )
+                        .map((t) =>
+                          new Date(t.created_at).toLocaleDateString(),
+                        ),
+                      datasets: [
+                        {
+                          label: asset.asset,
+                          data: (() => {
+                            let amt = 0;
+                            return transactions
+                              .filter((t) => t.asset === asset.asset)
+                              .sort(
+                                (a, b) =>
+                                  new Date(a.created_at).getTime() -
+                                  new Date(b.created_at).getTime(),
+                              )
+                              .map((t) => {
+                                amt += t.type === "buy" ? t.amount : -t.amount;
+                                return amt;
+                              });
+                          })(),
+                          backgroundColor: "rgba(255, 206, 86, 0.2)",
+                          borderColor: "rgba(255, 206, 86, 1)",
+                          borderWidth: 2,
+                          tension: 0.3,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      scales: { y: { beginAtZero: true } },
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         )}
+
         {/* Analytics tab */}
         {activeTab === "analytics" && (
           <div>
@@ -457,33 +819,17 @@ const ProfilePage = () => {
                       {
                         label: "Asset Distribution",
                         data: assets.map((asset) => asset.amount),
-                        backgroundColor: [
-                          "rgba(255, 99, 132, 0.2)",
-                          "rgba(54, 162, 235, 0.2)",
-                          "rgba(255, 206, 86, 0.2)",
-                          "rgba(75, 192, 192, 0.2)",
-                          "rgba(153, 102, 255, 0.2)",
-                          "rgba(255, 159, 64, 0.2)",
-                        ],
-                        borderColor: [
-                          "rgba(255, 99, 132, 1)",
-                          "rgba(54, 162, 235, 1)",
-                          "rgba(255, 206, 86, 1)",
-                          "rgba(75, 192, 192, 1)",
-                          "rgba(153, 102, 255, 1)",
-                          "rgba(255, 159, 64, 1)",
-                        ],
+                        backgroundColor: assets.map(
+                          (_, i) => `hsla(${(i * 60) % 360}, 70%, 50%, 0.5)`, // auto unique color per asset
+                        ),
+                        borderColor: assets.map(
+                          (_, i) => `hsla(${(i * 60) % 360}, 70%, 40%, 1)`,
+                        ),
                         borderWidth: 1,
                       },
                     ],
                   }}
-                  options={{
-                    scales: {
-                      y: {
-                        beginAtZero: true,
-                      },
-                    },
-                  }}
+                  options={{ plugins: { tooltip: { mode: "index" } } }}
                 />
               </div>
               <div>
@@ -515,7 +861,7 @@ const ProfilePage = () => {
             </div>
           </div>
         )}
-       
+
         {activeTab === "settings" && (
           <div className="w-full max-w-md">
             {/* Settings form */}
@@ -638,7 +984,15 @@ const ProfilePage = () => {
               </h3>
               <button
                 className="bg-red-500 px-4 py-2 rounded"
-                onClick={handleDeleteAccount}
+                onClick={() => {
+                  if (
+                    confirm(
+                      "Are you sure you want to delete your account? This cannot be undone.",
+                    )
+                  ) {
+                    handleDeleteAccount();
+                  }
+                }}
               >
                 Delete Account
               </button>

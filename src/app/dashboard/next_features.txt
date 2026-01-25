@@ -1,0 +1,79 @@
+What to add next (sentences only, no code)
+1. Transaction status lifecycle
+
+Add a proper lifecycle for deposits and withdrawals: pending → processing → completed / failed.
+This instantly makes deposits feel “real”, not just numbers jumping.
+
+2. Balance locking during withdrawal
+
+When a user initiates a withdrawal, lock that amount so it can’t be traded or withdrawn again until completion.
+This prevents race conditions and makes your system bank-grade.
+
+3. Balance before & after snapshots
+
+Store the wallet balance before and after every transaction.
+This gives you a full audit trail and lets users trust their account history.
+
+4. Unified activity feed
+
+Merge trades, deposits, withdrawals, and system events into one activity timeline.
+Real platforms don’t separate “money” and “trading” — everything lives together.
+
+5. Pending transactions section
+
+Show a separate section for pending withdrawals and deposits.
+Users feel calmer when they can see money is on the way.
+
+6. Withdrawal limits & cooldowns
+
+Add daily withdrawal limits and cooldown timers after large withdrawals.
+This adds realism and protects against abuse.
+
+7. Fee transparency
+
+Show:
+
+Deposit fee (even if 0%)
+
+Withdrawal fee
+
+Trading fee per transaction
+Premium platforms always show fees before confirmation.
+
+8. Real-time PnL indicator
+
+Show unrealized profit/loss updating live as prices move.
+This is one of the biggest “this feels like Binance” moments.
+
+9. Account level system
+
+Introduce account tiers (Basic / Verified / Pro) with different limits and features.
+Even if verification is fake for now, the structure makes the platform feel serious.
+
+10. Security & trust indicators
+
+Add visible signals like:
+
+“Last login”
+
+“Active sessions”
+
+“2FA available”
+Users trust what they can see.
+
+Specifically for your deposit & withdraw flow (critical upgrades)
+
+Right now, deposits and withdrawals feel instant and optimistic.
+To upgrade that:
+
+Add a short “processing” state (even 1–2 seconds)
+
+Disable all action buttons during processing
+
+Prevent multiple submissions
+
+Add withdrawal review / approval simulation
+
+Show estimated completion time
+
+These small UX delays increase perceived legitimacy.

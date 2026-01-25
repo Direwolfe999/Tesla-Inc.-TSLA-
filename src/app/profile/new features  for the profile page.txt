@@ -1,0 +1,10 @@
+Add a bio section: Allow users to share a brief description about themselves.
+Profile verification badge: Display a verification badge for authenticated users.
+Customizable profile themes: Let users choose from various themes or customize colors.
+Recent activity feed: Show a feed of the user's recent transactions or activities.
+Asset performance chart: Display a chart showing the performance of the user's assets.
+Watchlist feature: Allow users to add assets to a watchlist for easy tracking.
+Social sharing buttons: Add buttons to share portfolio performance on social media.
+Account linking suggestions: Suggest linking other accounts (e.g., bank accounts) for easier transactions.
+Security alerts: Display security alerts or notifications for suspicious activities.
+Portfolio insights: Provide insights or recommendations based on the user's portfolio.

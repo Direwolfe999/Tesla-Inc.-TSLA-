@@ -15,13 +15,14 @@ import WithdrawForm from "@/components/Home/Hero/withdraw-form";
 
 interface Transaction {
   id: string;
-  type: "buy" | "sell" | "deposit" | "withdraw"; // added deposit & withdraw
-  asset: string; // for deposit/withdraw, you can keep it as "USD" or null
+  type: "buy" | "sell" | "deposit" | "withdraw";
+  asset: string;
   amount: number;
-  price?: number; // optional because deposits/withdraws may not have a price
+  price?: number;
   created_at: string;
-  status?: "pending" | "completed" | "failed"; // optional, if you track status
+  status: "pending" | "completed" | "failed";
 }
+
 
 
 interface Holding {
@@ -34,6 +35,7 @@ const Dashboard = () => {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [balance, setBalance] = useState(0);
+  const [lockedBalance, setLockedBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [holdings, setHoldings] = useState<Holding[]>([]);
   const [isBuying, setIsBuyingOpen] = useState(false);
@@ -45,8 +47,41 @@ const Dashboard = () => {
   const [visibleNews, setVisibleNews] = useState(6);
 const [isDepositOpen, setIsDepositOpen] = useState(false);
 const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  
-const fetchNews = async () => {
+ 
+
+  const fetchNews = async () => {
+    /* -------- Static Fallback -------- */
+    const staticFallback = [
+      {
+        title: "Tesla launches new Cybertruck",
+        url: "https://www.tesla.com/cybertruck",
+        summary: "Tesla unveils new Cybertruck with updated features.",
+        banner_image: "/images/tesla-cybertruck.jpg",
+      },
+    ];
+
+    try {
+      const alphaNews = await fetchAlphaVantage();
+      setNews(alphaNews);
+    } catch (alphaError) {
+      console.warn("Alpha Vantage failed → trying NewsAPI");
+
+      try {
+        const marketAuxNews = await fetchMarketAux();
+        setNews(marketAuxNews);
+      } catch (marketAuxError) {
+        console.error("Both news sources failed", marketAuxError);
+        setNews(staticFallback);
+      }
+    }
+  };
+
+
+  // if (process.env.NODE_ENV === "production") {
+  //   setNews(staticFallback);
+  //   return;
+  // }
+
   /* -------- Alpha Vantage -------- */
   const fetchAlphaVantage = async () => {
     const res = await fetch(
@@ -88,43 +123,17 @@ const fetchNews = async () => {
  };
 
 
-  /* -------- Static Fallback -------- */
-  const staticFallback = [
-    {
-      title: "Tesla launches new Cybertruck",
-      url: "https://www.tesla.com/cybertruck",
-      summary: "Tesla unveils new Cybertruck with updated features.",
-      banner_image: "/images/tesla-cybertruck.jpg",
-    },
-  ];
-
-  try {
-    const alphaNews = await fetchAlphaVantage();
-    setNews(alphaNews);
-  } catch (alphaError) {
-    console.warn("Alpha Vantage failed → trying NewsAPI");
-
-    try {
-      const marketAuxNews = await fetchMarketAux();
-      setNews(marketAuxNews);
-    } catch (marketAuxError) {
-      console.error("Both news sources failed", marketAuxError);
-      setNews(staticFallback);
-    }
-  }
-};
-
-
-
-
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       if (!data.session) return router.push("/auth/signin");
       setUser(data.session.user);
-      fetchAll(data.session.user.id);
-      setupRealtime(data.session.user.id);
-      fetchNews();
+     fetchAll(data.session.user.id);
+     fetchNews();
+
+     const cleanup = setupRealtime(data.session.user.id);
+     return cleanup;
+
     });
   }, []);
 
@@ -166,16 +175,21 @@ const fetchNews = async () => {
   const fetchBalance = async (userId: string) => {
     const { data, error } = await supabase
       .from("wallets")
-      .select("balance")
+      .select("balance, locked_balance")
       .eq("user_id", userId)
       .single();
 
-    if (!error && data) {
-      setBalance(data.balance);
-    } else {
+    if (error) {
       console.error("Error fetching balance:", error);
+      return;
+    }
+
+    if (data) {
+      setBalance(Number(data.balance));
+      setLockedBalance(Number(data.locked_balance ?? 0));
     }
   };
+
 
 
   
@@ -196,7 +210,7 @@ const fetchNews = async () => {
   
   
   const setupRealtime = (userId: string) => {
-    supabase
+    const walletChannel = supabase
       .channel("wallet-updates")
       .on(
         "postgres_changes",
@@ -207,16 +221,19 @@ const fetchNews = async () => {
           filter: `user_id=eq.${userId}`,
         },
         (payload: any) => {
-          console.log("Received Update in Dashboard:", payload);
-          if (payload.new?.balance !== undefined) {
-            setBalance(Number(payload.new.balance));
-            toast.success(`Wallet updated: $${payload.new.balance}`);
+          if (payload.new) {
+            if (payload.new.balance !== undefined) {
+              setBalance(Number(payload.new.balance));
+            }
+            if (payload.new.locked_balance !== undefined) {
+              setLockedBalance(Number(payload.new.locked_balance));
+            }
           }
         },
       )
       .subscribe();
 
-    supabase
+    const txChannel = supabase
       .channel("tx-realtime")
       .on(
         "postgres_changes",
@@ -229,16 +246,27 @@ const fetchNews = async () => {
         () => fetchTransactions(userId),
       )
       .subscribe();
+
+    return () => {
+      supabase.removeChannel(walletChannel);
+      supabase.removeChannel(txChannel);
+    };
   };
+
 
   const computeHoldings = (txs: Transaction[]) => {
     const map: Record<string, Holding> = {};
 
     txs.forEach((tx) => {
+      if (tx.type !== "buy" && tx.type !== "sell") return;
+      if (!tx.asset || tx.asset === "USD") return;
+
       if (!map[tx.asset]) {
         map[tx.asset] = { asset: tx.asset, quantity: 0, value: 0 };
       }
+
       const qty = tx.type === "buy" ? tx.amount : -tx.amount;
+
       map[tx.asset].quantity += qty;
       map[tx.asset].value += qty * (tx.price || 0);
     });
@@ -247,6 +275,9 @@ const fetchNews = async () => {
   };
 
   if (!user) return <p className="text-white">Loading...</p>;
+
+
+  const availableBalance = Math.max(0, balance - lockedBalance);
 
   return (
     <div className="max-w-6xl mx-auto mt-40 text-white space-y-8 bg-gradient-to-b from-gray-900 to-violet-950 min-h-screen">
@@ -265,11 +296,19 @@ const fetchNews = async () => {
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-dark_grey p-6 rounded-lg">
-          <h2 className="text-2xl mb-3">Balance</h2>
-          <p className="text-4xl font-bold text-primary">
-            ${Number(balance ?? 0).toFixed(2)}
+          <h2 className="text-xl mb-2">Balance</h2>
+
+          <p className="text-2xl font-semibold text-primary mb-1">
+            Total Balance: ${balance.toFixed(2)}
+          </p>
+          <p className="text-yellow-400 mb-1">
+            Locked: ${lockedBalance.toFixed(2)}
+          </p>
+          <p className="text-lg text-green-400 font-semibold">
+            Available: ${availableBalance.toFixed(2)}
           </p>
         </div>
+
         <div className="bg-dark_grey p-6 rounded-lg">
           <h2 className="text-2xl mb-3">Actions</h2>
           <div className="grid grid-cols-2 gap-4">
@@ -375,11 +414,11 @@ const fetchNews = async () => {
         <ul className="space-y-2 max-h-64 overflow-y-auto">
           {transactions.map((tx) => {
             // Set color based on type
-            let bgColor = "";
-            if (tx.type === "buy" || tx.type === "deposit")
-              bgColor = "bg-green-600";
-            if (tx.type === "sell" || tx.type === "withdraw")
-              bgColor = "bg-red-600";
+            let bgColor = "bg-gray-600";
+
+            if (tx.status === "completed") bgColor = "bg-green-600";
+            if (tx.status === "pending") bgColor = "bg-yellow-600";
+            if (tx.status === "failed") bgColor = "bg-red-600";
 
             return (
               <li key={tx.id} className={`p-2 rounded ${bgColor}`}>
@@ -403,32 +442,39 @@ const fetchNews = async () => {
         </div>
       </div>
 
-      {/* <!-- MODALS --> */}
       {isBuying && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center">
           <div ref={buyRef} className="bg-dark_grey p-6 rounded-lg">
-            <BuyCrypto balance={balance}/>
+            <BuyCrypto
+              balance={availableBalance} // same as before
+              lockedBalance={lockedBalance} // NEW: pass locked
+              onSuccess={() => setIsBuyingOpen(false)}
+            />
             <button onClick={() => setIsBuyingOpen(false)}>Close</button>
           </div>
         </div>
       )}
+
       {isSelling && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center">
           <div ref={sellRef} className="bg-dark_grey p-6 rounded-lg">
-            <SellCrypto balance={balance} />
+            <SellCrypto
+              balance={availableBalance} // same as before
+              lockedBalance={lockedBalance} // NEW: pass locked
+              onSuccess={() => setIsSellingOpen(false)}
+            />
             <button onClick={() => setIsSellingOpen(false)}>Close</button>
           </div>
         </div>
       )}
+
       {/* Deposit & Withdraw Modals */}
       {isDepositOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center">
           <div className="bg-dark_grey p-6 rounded-lg">
             <DepositForm
               onClose={() => setIsDepositOpen(false)}
-              onSuccess={(newBalance) =>
-                setBalance((prevBalance) => prevBalance + Number(newBalance))
-              }
+              onSuccess={(newBalance) => setBalance(newBalance)}
             />
           </div>
         </div>
@@ -438,7 +484,7 @@ const fetchNews = async () => {
           <div className="bg-dark_grey p-6 rounded-lg">
             <WithdrawForm
               onClose={() => setIsWithdrawOpen(false)}
-              currentBalance={balance}
+              availableBalance={balance - lockedBalance}
               onSuccess={(newBalance) => setBalance(newBalance)}
             />
           </div>

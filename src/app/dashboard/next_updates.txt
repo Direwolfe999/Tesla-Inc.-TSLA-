@@ -1,0 +1,195 @@
+1. Transaction History & Ledger (Non-negotiable)
+
+Real trading apps always have a ledger.
+
+What to add
+
+Deposit / withdrawal history
+
+Trade executions
+
+Fees, timestamps, status (pending, completed, failed)
+
+Why it feels premium
+Users can audit their own money. This builds trust.
+
+Upgrade idea
+
+Click any transaction → detailed modal (TX ID, balance before/after)
+
+2. Order Types (Market, Limit, Stop)
+
+Right now you probably only have “buy” or “sell”.
+
+Add
+
+Market orders
+
+Limit orders
+
+Stop-loss & take-profit
+
+Why
+This instantly separates a real trading platform from a demo.
+
+Pro touch
+Show “Estimated execution price” before confirmation.
+
+3. Live Price Feed (WebSockets)
+
+Polling = amateur. Streaming = pro.
+
+Add
+
+WebSocket or Supabase Realtime channel
+
+Price ticks update without refresh
+
+Feels premium because
+
+Numbers move smoothly
+
+No page reloads
+
+Feels like Binance / TradingView
+
+4. Advanced Charts (TradingView-style)
+
+Charts sell the illusion of seriousness.
+
+Add
+
+Candlestick charts
+
+Timeframes (1m, 5m, 1h, 1d)
+
+Indicators (EMA, RSI, MACD)
+
+Tools
+
+TradingView Lightweight Charts
+
+Recharts (basic)
+
+ApexCharts
+
+Bonus
+Dark mode chart by default 😏
+
+5. Open Positions & PnL Tracking
+
+Users want to feel profit/loss.
+
+Add
+
+Open positions table
+
+Real-time PnL (green/red)
+
+Liquidation price (even if simulated)
+
+Premium effect
+Live PnL changing in real time = dopamine.
+
+6. Risk Management Controls
+
+This is where platforms feel institutional.
+
+Add
+
+Max position size
+
+Risk % per trade
+
+Auto stop-loss suggestions
+
+Why it matters
+It shows you care about user safety — very “regulated platform” vibe.
+
+7. KYC-Ready Account Levels (Even if Mocked)
+
+Even if you’re not doing KYC yet — structure for it.
+
+Add
+
+Account tiers (Basic, Verified, Pro)
+
+Withdrawal limits per tier
+
+Premium illusion
+Users expect restrictions — weirdly, restrictions = trust.
+
+8. Notifications System (In-App + Email)
+
+Silence feels cheap.
+
+Add
+
+Deposit successful
+
+Withdrawal pending/completed
+
+Price alerts
+
+Stop-loss hit
+
+Tech
+
+Supabase triggers → notifications table
+
+Toasts + bell icon + unread count
+
+9. Fees, Spreads & Transparency Panel
+
+Real trading apps always show fees.
+
+Add
+
+Trading fee %
+
+Withdrawal fee
+
+Spread preview
+
+Pro move
+Show:
+
+“Estimated fee: $2.34”
+
+It builds credibility even if fees are small.
+
+10. Security & Trust Signals (Huge for Premium Feel)
+
+Users won’t say it, but they feel it.
+
+Add
+
+Session management (active sessions list)
+
+2FA toggle (even if stubbed)
+
+Login history (IP, device)
+
+Visual cues
+
+Shield icons
+
+“Secured by encryption” labels
+
+Subtle green checks
+
+🚀 What You Should Upgrade NEXT (Specifically for your deposit/withdraw)
+
+Since you’re already using Supabase and real-time balance updates:
+
+Immediate upgrades
+
+Add transaction status (pending → completed)
+
+Use database transactions (atomic balance updates)
+
+Add withdrawal cooldowns
+
+Prevent double-submit / race conditions
+
+Store balance_before & balance_after

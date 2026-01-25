@@ -3,18 +3,17 @@ import toast from "react-hot-toast";
 import { supabase } from "@/lib/supabaseClient";
 
 interface WithdrawFormProps {
-  currentBalance: number;
+  availableBalance: number;
   onClose: () => void;
-  onSuccess: (newBalance: number) => void;
+  onSuccess?: (newBalance: number) => void;
 }
 
-
 const WithdrawForm = ({
+  availableBalance,
   onClose,
-  currentBalance,
   onSuccess,
 }: WithdrawFormProps) => {
-  const [amount, setAmount] = useState<number>(0);
+  const [amount, setAmount] = useState<string>("");
   const [loading, setLoading] = useState(false);
 
   const ensureWallet = async (userId: string) => {
@@ -35,12 +34,13 @@ const WithdrawForm = ({
   };
 
   const handleWithdraw = async () => {
-    if (amount <= 0) {
+    const amt = parseFloat(amount.replace("$", ""));
+    if (!amt || amt <= 0) {
       toast.error("Enter a valid amount");
       return;
     }
 
-    if (amount > currentBalance) {
+    if (amt > availableBalance) {
       toast.error("Insufficient balance");
       return;
     }
@@ -61,16 +61,18 @@ const WithdrawForm = ({
 
       await ensureWallet(userId);
 
-      const { error } = await supabase.rpc("withdraw_funds", {
+      const { data, error } = await supabase.rpc("withdraw_funds", {
         p_user_id: userId,
-        p_amount: Number(amount),
+        p_amount: amt,
       });
 
       if (error) throw error;
 
-      onSuccess(currentBalance - Number(amount));
       toast.success("Withdrawal successful");
-      setAmount(0);
+      setAmount("");
+      if (onSuccess && data?.new_balance !== undefined) {
+        onSuccess(data.new_balance);
+      }
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Withdrawal failed");
@@ -82,20 +84,20 @@ const WithdrawForm = ({
   return (
     <div className="space-y-4">
       <h2 className="text-2xl font-bold">Withdraw Funds</h2>
-      <p>Current Balance: ${currentBalance.toFixed(2)}</p>
+      <p>Available: ${availableBalance.toFixed(2)}</p>
 
       <input
         type="text"
-        value={amount === 0 ? "" : `$${amount}`}
-        onChange={(e) => setAmount(Number(e.target.value.replace("$", "")))}
-        placeholder="Enter amount"
+        value={amount ? `$${amount}` : ""}
+        onChange={(e) => setAmount(e.target.value.replace(/\$/g, ""))}
+        placeholder="$0.00"
         className="w-full p-3 rounded-lg bg-gray-700 text-white"
       />
 
       <button
         onClick={handleWithdraw}
         disabled={loading}
-        className="bg-red-600 w-full py-3 rounded-lg text-white font-bold hover:bg-red-700"
+        className="bg-red-600 w-full py-3 rounded-lg text-white font-bold hover:bg-red-700 disabled:opacity-50"
       >
         {loading ? "Processing..." : "Withdraw"}
       </button>

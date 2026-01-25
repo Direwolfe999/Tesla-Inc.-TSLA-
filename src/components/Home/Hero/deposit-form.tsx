@@ -8,7 +8,7 @@ interface DepositFormProps {
 }
 
 const DepositForm = ({ onClose, onSuccess }: DepositFormProps) => {
-  const [amount, setAmount] = useState<number>(0);
+  const [amount, setAmount] = useState<string>(""); // keep as string for dollar input
   const [loading, setLoading] = useState(false);
 
   const ensureWallet = async (userId: string) => {
@@ -29,7 +29,8 @@ const DepositForm = ({ onClose, onSuccess }: DepositFormProps) => {
   };
 
   const handleDeposit = async () => {
-    if (amount <= 0) {
+    const amt = parseFloat(amount.replace("$", ""));
+    if (!amt || amt <= 0) {
       toast.error("Enter a valid amount");
       return;
     }
@@ -50,15 +51,18 @@ const DepositForm = ({ onClose, onSuccess }: DepositFormProps) => {
 
       await ensureWallet(userId);
 
-      const { error } = await supabase.rpc("deposit_funds", {
+      const { data, error } = await supabase.rpc("deposit_funds", {
         p_user_id: userId,
-        p_amount: Number(amount),
+        p_amount: amt,
       });
 
       if (error) throw error;
-      if (onSuccess) onSuccess(Number(amount));
+
       toast.success("Deposit successful");
-      setAmount(0);
+      setAmount("");
+      if (onSuccess && data?.new_balance !== undefined) {
+        onSuccess(data.new_balance); // update parent immediately
+      }
       onClose();
     } catch (err: any) {
       toast.error(err.message || "Deposit failed");
@@ -73,16 +77,16 @@ const DepositForm = ({ onClose, onSuccess }: DepositFormProps) => {
 
       <input
         type="text"
-        value={amount === 0 ? "" : `$${amount}`}
-        onChange={(e) => setAmount(Number(e.target.value.replace("$", "")))}
-        placeholder="Enter amount"
+        value={amount ? `$${amount}` : ""}
+        onChange={(e) => setAmount(e.target.value.replace(/\$/g, ""))}
+        placeholder="$0.00"
         className="w-full p-3 rounded-lg bg-gray-700 text-white"
       />
 
       <button
         onClick={handleDeposit}
         disabled={loading}
-        className="bg-green-600 w-full py-3 rounded-lg text-white font-bold hover:bg-green-700"
+        className="bg-green-600 w-full py-3 rounded-lg text-white font-bold hover:bg-green-700 disabled:opacity-50"
       >
         {loading ? "Processing..." : "Deposit"}
       </button>
