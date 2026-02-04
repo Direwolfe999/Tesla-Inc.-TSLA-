@@ -1,17 +1,26 @@
-import { getImagePrefix } from "@/utils/utils";
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 
-const Logo: React.FC = () => {
+const Logo = () => {
   return (
-    <Link href="/">
+    <Link href="/" className="block">
+      {/* This logo shows ONLY in LIGHT mode (Logo for dark backgrounds) */}
       <Image
-        src={`${getImagePrefix()}images/logo/logo.svg`}
+        src="/images/logo/logo-dark1.png"
         alt="logo"
-        width={160}
-        height={50}
-        style={{ width: "auto", height: "auto" }}
-        quality={100}
+        width={130}
+        height={30}
+        className="dark:hidden h-6 w-auto object-contain"
+      />
+      {/* This logo shows ONLY in DARK mode (White logo) */}
+      <Image
+        src="/images/logo/logo-white.svg"
+        alt="logo"
+        width={130}
+        height={30}
+        className="hidden dark:block h-6 w-auto object-contain"
       />
     </Link>
   );

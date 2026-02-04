@@ -3,15 +3,15 @@ import type { Config } from "tailwindcss";
 const config: Config = {
   darkMode: "class",
   content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
       maxWidth: {
         'screen-xl': '75rem',
-        'screen-2xl': '83.75rem'
+        'screen-2xl': '83.75rem',
       },
       boxShadow: {
         'cause-shadow': '0px 4px 17px 0px #00000008',
@@ -34,26 +34,26 @@ const config: Config = {
         45: '45rem',
         94: '22.5rem',
         85: '21rem',
-        3.75: '3.75rem'
+        3.75: '3.75rem',
       },
       inset: {
         '5%': '5%',
-        '35%': '35%'
+        '35%': '35%',
       },
       zIndex: {
         '1': '1',
         '2': '2',
-        '999': '999'
+        '999': '999',
       },
       colors: {
-        primary: "#99E39E",
+        primary: "#1D6350",
         secondary: "#1DC8CD",
         midnight_text: "#263238",
         muted: "#d8dbdb",
         error: "#CF3127",
         warning: "#F7931A",
         light_grey: "#505050",
-        grey: "#F5F7FA",
+        grey: "#e9e9e9",
         dark_grey: "#1E2229",
         border: "#E1E1E1",
         success: "#3cd278",
@@ -67,102 +67,22 @@ const config: Config = {
         slateGray: "#2F3543",
       },
       fontSize: {
-        86: [
-          "5.375rem",
-          {
-            lineHeight: "1.2",
-          }
-        ],
-        76: [
-          "4.75rem",
-          {
-            lineHeight: "1.2",
-          }
-        ],
-        70: [
-          "4.375rem",
-          {
-            lineHeight: "1.2",
-          }
-        ],
-        54: [
-          "3.375rem",
-          {
-            lineHeight: "1.2",
-          }
-        ],
-        44: [
-          "2.75rem",
-          {
-            lineHeight: "1.3",
-          }
-        ],
-        40: [
-          "2.5rem",
-          {
-            lineHeight: "3rem",
-          },
-        ],
-        36: [
-          "2.25rem",
-          {
-            lineHeight: "2.625rem",
-          },
-        ],
-        30: [
-          "1.875rem",
-          {
-            lineHeight: "2.25rem",
-          },
-        ],
-        28: [
-          "1.75rem",
-          {
-            lineHeight: "2.25rem",
-          },
-        ],
-        24: [
-          "1.5rem",
-          {
-            lineHeight: "2rem",
-          },
-        ],
-        22: [
-          "1.375rem",
-          {
-            lineHeight: "2rem",
-          },
-        ],
-        21: [
-          "1.3125rem",
-          {
-            lineHeight: "1.875rem",
-          },
-        ],
-        18: [
-          "1.125rem",
-          {
-            lineHeight: "1.5rem",
-          },
-        ],
-        17: [
-          "1.0625rem",
-          {
-            lineHeight: "1.4875rem",
-          },
-        ],
-        16: [
-          "1rem",
-          {
-            lineHeight: "1.6875rem",
-          },
-        ],
-        14: [
-          "0.875rem",
-          {
-            lineHeight: "1.225rem",
-          },
-        ],
+        86: ["5.375rem", { lineHeight: "1.2" }],
+        76: ["4.75rem", { lineHeight: "1.2" }],
+        70: ["4.375rem", { lineHeight: "1.2" }],
+        54: ["3.375rem", { lineHeight: "1.2" }],
+        44: ["2.75rem", { lineHeight: "1.3" }],
+        40: ["2.5rem", { lineHeight: "3rem" }],
+        36: ["2.25rem", { lineHeight: "2.625rem" }],
+        30: ["1.875rem", { lineHeight: "2.25rem" }],
+        28: ["1.75rem", { lineHeight: "2.25rem" }],
+        24: ["1.5rem", { lineHeight: "2rem" }],
+        22: ["1.375rem", { lineHeight: "2rem" }],
+        21: ["1.3125rem", { lineHeight: "1.875rem" }],
+        18: ["1.125rem", { lineHeight: "1.5rem" }],
+        17: ["1.0625rem", { lineHeight: "1.4875rem" }],
+        16: ["1rem", { lineHeight: "1.6875rem" }],
+        14: ["0.875rem", { lineHeight: "1.225rem" }],
       },
       backgroundImage: {
         "start": "url('/images/work/bg-start.png')",
@@ -171,9 +91,10 @@ const config: Config = {
       blur: {
         220: '220px',
         400: '400px',
-      }
+      },
     },
   },
   plugins: [],
 };
+
 export default config;

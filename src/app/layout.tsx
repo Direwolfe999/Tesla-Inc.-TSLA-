@@ -20,12 +20,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${font.className} bg-gradient-to-b from-slate-900 to-indigo-950 text-white min-h-screen`}
+        className={`${font.className} 
+          /* Light Mode Defaults */
+          bg-white text-black 
+          /* Dark Mode Overrides */
+          dark:bg-gradient-to-b dark:from-slate-900 dark:to-indigo-950 dark:text-white 
+          min-h-screen`}
       >
         <ThemeProvider
           attribute="class"
           enableSystem={true}
-          defaultTheme="system"
+          defaultTheme="system" // This will follow the user's OS preference
         >
           <Aoscompo>
             <LayoutWrapper>{children}</LayoutWrapper>

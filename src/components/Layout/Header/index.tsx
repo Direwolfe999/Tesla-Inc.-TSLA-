@@ -2,212 +2,195 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { headerData } from "../Header/Navigation/menuData";
+import { headerData } from "./Navigation/menuData";
 import Logo from "./Logo";
-import Image from "next/image";
 import HeaderLink from "../Header/Navigation/HeaderLink";
 import MobileHeaderLink from "../Header/Navigation/MobileHeaderLink";
 import Signin from "@/components/Auth/SignIn";
 import SignUp from "@/components/Auth/SignUp";
 import { useTheme } from "next-themes";
-import { Icon } from "@iconify/react/dist/iconify.js";
-import { getImagePrefix } from "@/utils/utils";
+import { Icon } from "@iconify/react";
+import ThemeToggler from "./ThemeToggler";
 
 const Header: React.FC = () => {
-  const pathUrl = usePathname();
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const pathname = usePathname();
   const [navbarOpen, setNavbarOpen] = useState(false);
   const [sticky, setSticky] = useState(false);
   const [isSignInOpen, setIsSignInOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
-  const navbarRef = useRef<HTMLDivElement>(null);
+
   const signInRef = useRef<HTMLDivElement>(null);
   const signUpRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleScroll = () => {
-    setSticky(window.scrollY >= 80);
-  };
-
-  const handleClickOutside = (event: MouseEvent) => {
-    if (
-      signInRef.current &&
-      !signInRef.current.contains(event.target as Node)
-    ) {
-      setIsSignInOpen(false);
-    }
-    if (
-      signUpRef.current &&
-      !signUpRef.current.contains(event.target as Node)
-    ) {
-      setIsSignUpOpen(false);
-    }
-    if (
-      mobileMenuRef.current &&
-      !mobileMenuRef.current.contains(event.target as Node) &&
-      navbarOpen
-    ) {
-      setNavbarOpen(false);
-    }
-  };
+  useEffect(() => {
+    const handleScroll = () => setSticky(window.scrollY >= 50);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
-    window.addEventListener("scroll", handleScroll);
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-      document.removeEventListener("mousedown", handleClickOutside);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        signInRef.current &&
+        !signInRef.current.contains(event.target as Node)
+      )
+        setIsSignInOpen(false);
+      if (
+        signUpRef.current &&
+        !signUpRef.current.contains(event.target as Node)
+      )
+        setIsSignUpOpen(false);
+      if (
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target as Node)
+      )
+        setNavbarOpen(false);
     };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [navbarOpen, isSignInOpen, isSignUpOpen]);
 
-  useEffect(() => {
-    if (isSignInOpen || isSignUpOpen || navbarOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-  }, [isSignInOpen, isSignUpOpen, navbarOpen]);
+  // Premium Green Gradient
+  const gradientPrimary =
+    "bg-[#1D6350] dark:bg-gradient-to-r dark:from-primary dark:to-success text-white dark:text-darkmode shadow-lg hover:shadow-primary/30 active:scale-95 transition-all";
+
+  const gradientOutline =
+    "border border-black/10 dark:border-white/20 text-black dark:text-white hover:border-primary hover:text-primary transition-all";
 
   return (
     <header
-      className={`fixed top-0 z-40 w-full pb-5 transition-all duration-300 ${
-        sticky ? " shadow-lg bg-darkmode pt-5" : "shadow-none md:pt-14 pt-5"
+      className={`fixed top-0 z-40 w-full transition-all duration-300 ${
+        sticky
+          ? /* FORCED LIGHT MODE COLOR: bg-grey (your #cecece) 
+         DARK MODE COLOR: bg-darkmode (your #000510)
+      */
+            "shadow-xl bg-grey dark:bg-darkmode border-b border-gray-300 dark:border-white/5 py-2"
+          : "bg-transparent py-4"
       }`}
     >
-      <div className="lg:py-0 py-2">
-        <div className="container mx-auto lg:max-w-screen-xl md:max-w-screen-md flex items-center justify-between px-4">
+      <div className="container mx-auto lg:max-w-screen-xl px-4 md:px-8">
+        <div className="flex items-center justify-between">
           <Logo />
-          <nav className="hidden lg:flex flex-grow items-center gap-8 justify-center">
+
+          {/* Nav Links */}
+          <nav className="hidden lg:flex items-center gap-8">
             {headerData.map((item, index) => (
               <HeaderLink key={index} item={item} />
             ))}
           </nav>
+
+          {/* Actions */}
           <div className="flex items-center gap-4">
+            <ThemeToggler />
+
             {pathname !== "/dashboard" && (
-              <>
-                <Link
-                  href="#"
-                  className="hidden lg:block bg-transparent text-primary border hover:bg-primary border-primary hover:text-darkmode px-4 py-2 rounded-lg"
-                  onClick={() => {
-                    setIsSignInOpen(true);
-                  }}
+              <div className="hidden lg:flex items-center gap-4">
+                <button
+                  onClick={() => setIsSignInOpen(true)}
+                  className={`px-6 py-2 text-sm font-bold rounded-full ${gradientOutline}`}
                 >
-                  Sign In
-                </Link>
-                {isSignInOpen && (
-                  <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div
-                      ref={signInRef}
-                      className="relative mx-auto w-full max-w-md overflow-hidden rounded-lg px-8 pt-14 pb-8 text-center bg-dark_grey bg-opacity-90 backdrop-blur-md"
-                    >
-                      <button
-                        onClick={() => setIsSignInOpen(false)}
-                        className="absolute top-0 right-0 mr-8 mt-8 dark:invert"
-                        aria-label="Close Sign In Modal"
-                      >
-                        <Icon
-                          icon="tabler:currency-xrp"
-                          className="text-white hover:text-primary text-24 inline-block me-2"
-                        />
-                      </button>
-                      <Signin />
-                    </div>
-                  </div>
-                )}
-                <Link
-                  href="#"
-                  className="hidden lg:block bg-primary text-darkmode hover:bg-transparent hover:text-primary border border-primary px-4 py-2 rounded-lg"
-                  onClick={() => {
-                    setIsSignUpOpen(true);
-                  }}
+                  SIGN IN
+                </button>
+
+                <button
+                  onClick={() => setIsSignUpOpen(true)}
+                  className={`px-6 py-2 text-sm font-bold rounded-full ${gradientPrimary}`}
                 >
-                  Sign Up
-                </Link>
-                {isSignUpOpen && (
-                  <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div
-                      ref={signUpRef}
-                      className="relative mx-auto w-full max-w-md overflow-hidden rounded-lg bg-dark_grey bg-opacity-90 backdrop-blur-md px-8 pt-14 pb-8 text-center"
-                    >
-                      <button
-                        onClick={() => setIsSignUpOpen(false)}
-                        className="absolute top-0 right-0 mr-8 mt-8 dark:invert"
-                        aria-label="Close Sign Up Modal"
-                      >
-                        <Icon
-                          icon="tabler:currency-xrp"
-                          className="text-white hover:text-primary text-24 inline-block me-2"
-                        />
-                      </button>
-                      <SignUp />
-                    </div>
-                  </div>
-                )}
-              </>
+                  SIGN UP
+                </button>
+              </div>
             )}
+
+            {/* Hamburger (Mobile Toggle) with Gradient Feel */}
             <button
               onClick={() => setNavbarOpen(!navbarOpen)}
-              className="block lg:hidden p-2 rounded-lg"
-              aria-label="Toggle mobile menu"
+              className="lg:hidden flex flex-col gap-1.5 p-2 group"
             >
-              <span className="block w-6 h-0.5 bg-white"></span>
-              <span className="block w-6 h-0.5 bg-white mt-1.5"></span>
-              <span className="block w-6 h-0.5 bg-white mt-1.5"></span>
+              {/* TOP LINE: Stealth Gray */}
+              <span
+                className={`block w-6 h-0.5 transition-all duration-300 ${
+                  navbarOpen ? "rotate-45 translate-y-2" : ""
+                } ${sticky || theme === "dark" ? "bg-success" : "bg-[#1E2229]"}`}
+              ></span>
+
+              {/* Middle Bar: Primary Green (The "Gradient" pop) */}
+              <span
+                className={`block w-6 h-0.5 transition-all duration-300 ${
+                  navbarOpen ? "opacity-0" : "opacity-100"
+                } ${sticky || theme === "dark" ? "bg-primary" : "bg-[#3cd278]"}`}
+              ></span>
+
+              {/* BOTTOM LINE: Stealth Gray */}
+              <span
+                className={`block w-6 h-0.5 transition-all duration-300 ${
+                  navbarOpen ? "-rotate-45 -translate-y-2" : ""
+                } ${sticky || theme === "dark" ? "bg-section" : "bg-[#1E2229]"}`}
+              ></span>
             </button>
           </div>
         </div>
-        {navbarOpen && (
-          <div className="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 z-40" />
-        )}
-        <div
-          ref={mobileMenuRef}
-          className={`lg:hidden fixed top-0 right-0 h-full w-full bg-darkmode shadow-lg transform transition-transform duration-300 max-w-xs ${
-            navbarOpen ? "translate-x-0" : "translate-x-full"
-          } z-50`}
-        >
-          <div className="flex items-center justify-between p-4">
-            <h2 className="text-lg font-bold text-midnight_text dark:text-midnight_text">
-              <Logo />
-            </h2>
-            {/* */}
+      </div>
+
+      {/* Mobile Menu - Steel Gradient Layout */}
+      <div
+        className={`fixed top-0 right-0 h-full w-80 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] transform transition-transform duration-500 z-[70] ${
+          navbarOpen ? "translate-x-0" : "translate-x-full"
+        } bg-gradient-to-br from-[#E2E8F0] via-[#CBD5E1] to-[#94A3B8] dark:bg-darkmode dark:from-transparent dark:to-transparent border-l border-white/20`}
+      >
+        <div className="p-8 h-full flex flex-col">
+          <div className="flex justify-between items-center mb-12">
+            <Logo />
             <button
               onClick={() => setNavbarOpen(false)}
-              className="bg-[url('/images/closed.svg')] bg-no-repeat bg-contain w-5 h-5 absolute top-0 right-0 mr-8 mt-8 dark:invert"
-              aria-label="Close menu Modal"
-            ></button>
+              className="text-[#0F172A] dark:text-white"
+            >
+              <Icon icon="tabler:x" width="32" />
+            </button>
           </div>
-          <nav className="flex flex-col items-start p-4">
+          <nav className="flex flex-col gap-2">
             {headerData.map((item, index) => (
               <MobileHeaderLink key={index} item={item} />
             ))}
-            {pathname !== "/dashboard" && (
-              <div className="mt-4 flex flex-col space-y-4 w-full">
-                <Link
-                  href="#"
-                  className="bg-transparent border border-primary text-primary px-4 py-2 rounded-lg hover:bg-blue-600 hover:text-white"
-                  onClick={() => {
-                    setIsSignInOpen(true);
-                    setNavbarOpen(false);
-                  }}
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="#"
-                  className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-                  onClick={() => {
-                    setIsSignUpOpen(true);
-                    setNavbarOpen(false);
-                  }}
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
+            <div className="mt-8 flex flex-col gap-4">
+              <button
+                onClick={() => setIsSignInOpen(true)}
+                className={`w-full py-3 rounded-xl font-bold ${gradientOutline}`}
+              >
+                SIGN IN
+              </button>
+              <button
+                onClick={() => setIsSignUpOpen(true)}
+                className={`w-full py-3 rounded-xl font-bold ${gradientPrimary}`}
+              >
+                SIGN UP
+              </button>
+            </div>
           </nav>
         </div>
       </div>
+
+      {/* Auth Modals */}
+      {(isSignInOpen || isSignUpOpen) && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+          <div
+            ref={isSignInOpen ? signInRef : signUpRef}
+            className="relative w-full max-w-md bg-white dark:bg-darkmode border border-black/5 dark:border-white/10 rounded-3xl p-10 shadow-2xl"
+          >
+            <button
+              onClick={() => {
+                setIsSignInOpen(false);
+                setIsSignUpOpen(false);
+              }}
+              className="absolute top-6 right-6 text-gray-400 hover:text-primary transition-colors"
+            >
+              <Icon icon="tabler:x" width="28" />
+            </button>
+            {isSignInOpen ? <Signin /> : <SignUp />}
+          </div>
+        </div>
+      )}
     </header>
   );
 };

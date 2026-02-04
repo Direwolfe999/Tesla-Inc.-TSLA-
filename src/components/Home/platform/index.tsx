@@ -1,32 +1,71 @@
-import Link from "next/link";
+"use client";
+
+import Image from "next/image";
+import { portfolioData } from "@/app/api/data";
+import { motion } from "framer-motion";
+import { getImagePrefix } from "@/utils/utils";
 
 const Platform = () => {
+  // Premium shared styles for icon containers
+  const iconBoxStyle = `
+    group-hover:scale-110 transition-all duration-300 
+    bg-gray-100 dark:bg-light_grey/30 backdrop-blur-sm 
+    rounded-full flex items-center justify-center shrink-0
+  `;
+
   return (
-    <section className="md:pt-44 sm:pt-24 pt-12 relative z-1">
-      <div className="container mx-auto lg:max-w-screen-xl px-4">
-        <div className="bg-section bg-opacity-10 px-16 py-14 rounded-3xl border-2 border-opacity-20 border-section grid grid-cols-12 items-center before:content-[''] before:absolute relative before:w-96 before:h-64 before:bg-start before:bg-no-repeat before:-bottom-11 overflow-hidden lg:before:right-48 before:-z-1 before:opacity-10 ">
-          <div className="lg:col-span-8 col-span-12">
-            <h2 className="text-white sm:text-40 text-30 mb-6">
-              Powered by the Tesla, Inc.<span className="text-primary">(TSLA)</span>{" "}
-              Platform
-            </h2>
-            <p className="text-muted text-opacity-60 text-18">
-              Our Stock have ensured Your gateway to smarter investing while empower people to have safer and more
-               trustworthy experiences.
+    <section
+      id="platform"
+      className="md:py-32 py-16 bg-white dark:bg-darkmode transition-colors duration-300 relative z-[10]"
+    >
+      <div className="container mx-auto lg:max-w-screen-xl px-4 sm:px-6">
+        <div className="text-center mb-20">
+          <motion.div
+            whileInView={{ y: 0, opacity: 1 }}
+            initial={{ y: 20, opacity: 0 }}
+            viewport={{ once: true }}
+          >
+            <p className="sm:text-28 text-18 text-gray-800 dark:text-gray-200 font-medium mb-4">
+              Advanced <span className="text-primary">Platform</span>
             </p>
-          </div>
-          <div className="lg:col-span-4 col-span-12">
-            <div className="flex lg:justify-end lg:mt-0 mt-7 justify-center">
-              <Link
-                href=""
-                className="text-darkmode bg-primary border border-primary py-3 px-5 rounded-lg sm:text-21 text-18 font-medium hover:bg-transparent hover:text-primary"
-              >
-                Get Started
-              </Link>
-            </div>
-          </div>
+            <h2 className="text-black dark:text-white sm:text-40 text-30 font-bold leading-tight lg:w-2/3 mx-auto">
+              A Trading Experience Built for{" "}
+              <span className="text-primary">Precision</span> and Speed.
+            </h2>
+          </motion.div>
         </div>
-        <div className="bg-gradient-to-br from-tealGreen to-charcoalGray sm:w-50 w-96 sm:h-50 h-96 rounded-full sm:-bottom-80 bottom-0 blur-400 z-0 absolute sm:-left-48 opacity-60"></div>
+
+        <div className="grid lg:grid-cols-3 md:grid-cols-2 gap-8">
+          {portfolioData.map((item, index) => (
+            <motion.div
+              key={index}
+              whileInView={{ y: 0, opacity: 1 }}
+              initial={{ y: 30, opacity: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+              className="group p-8 rounded-[2rem] bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:border-primary/50 transition-all duration-500 hover:shadow-2xl hover:shadow-primary/10"
+            >
+              <div className={`w-20 h-20 mb-8 ${iconBoxStyle}`}>
+                <Image
+                  src={`${getImagePrefix()}${item.image}`}
+                  alt={item.title}
+                  width={40}
+                  height={40}
+                  className="filter invert dark:invert-0 transition-all"
+                />
+              </div>
+
+              <h4 className="text-gray-900 dark:text-white text-24 font-bold mb-4 transition-colors group-hover:text-primary">
+                {item.title}
+              </h4>
+
+              <p className="text-gray-600 dark:text-gray-400 text-16 leading-relaxed">
+                Experience institutional-grade tools designed for the modern
+                investor. Reliability meets innovation.
+              </p>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </section>
   );

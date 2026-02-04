@@ -1,8 +1,16 @@
 'use client'
 import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+
 
 const ThemeToggler = () => {
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+
+useEffect(() => setMounted(true), []);
+if (!mounted) return <div className="h-8 w-8" />;
+
   return (
     <button
       aria-label="theme toggler"
