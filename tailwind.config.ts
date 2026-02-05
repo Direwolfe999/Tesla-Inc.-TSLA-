@@ -16,6 +16,15 @@ const config: Config = {
       boxShadow: {
         'cause-shadow': '0px 4px 17px 0px #00000008',
       },
+    animation: {
+        'neural-rotate': 'neural-rotate 8s linear infinite',
+      },
+      keyframes: {
+        'neural-rotate': {
+          'from': { transform: 'rotate(0deg) scale(2)' },
+          'to': { transform: 'rotate(360deg) scale(2)' },
+        },
+      },
       transitionDuration: {
         '150': '150ms',
       },
@@ -87,6 +96,7 @@ const config: Config = {
       backgroundImage: {
         "start": "url('/images/work/bg-start.png')",
         "perk": "url('/images/perks/perk-bg.png')",
+        'conic-gradient': 'conic-gradient(var(--tw-gradient-stops))',
       },
       blur: {
         220: '220px',

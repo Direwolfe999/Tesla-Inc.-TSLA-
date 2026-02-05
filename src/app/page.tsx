@@ -10,6 +10,8 @@ import Upgrade from "@/components/Home/upgrade";
 import TeslaShowcase from "@/components/Home/showcase";
 import Perks from "@/components/Home/perks";
 import { Metadata } from "next";
+import TeslaAI from "@/components/Home/TeslaAi";
+
 
 export const metadata: Metadata = {
   title: "Tesla, Inc (TSLA)",
@@ -19,14 +21,15 @@ export default function Home() {
   return (
     <main>
       <Hero />
+      <TeslaAI />
       {/* 2. Place it here so it flows from Hero into Ecosystem */}
-      <Ecosystem /> 
+      <Ecosystem />
       <Work />
       <TimeLine />
       <Platform />
       <Portfolio />
       <Upgrade />
-      <TeslaShowcase/>
+      <TeslaShowcase />
       <Perks />
     </main>
   );

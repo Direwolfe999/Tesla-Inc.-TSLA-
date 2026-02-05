@@ -1,5 +1,14 @@
 {
-  "node": {},
+  "node": {
+    "05fe1c7b6a090d4dcc8b1fc428116ce4493c1831": {
+      "workers": {
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fhome%2Fdirewolfe-x%2FPROJECTS%2FVS%20code%20Projects%2FTesla-X%20Stock%20Investment%2Fsrc%2Fapp%2Factions.ts%22%2C%5B%22getTeslaAnalysis%22%5D%5D%5D&__client_imported__=true!"
+      },
+      "layer": {
+        "app/page": "action-browser"
+      }
+    }
+  },
   "edge": {},
-  "encryptionKey": "Ozt0dMQOXk+/iRR3eVyFQg5kosMUtP981F8bDf2pfEU="
+  "encryptionKey": "d0AVWwl7WwkvFsms6jypbRNxWyeXSKTJfC/BAVRgfyk="
 }

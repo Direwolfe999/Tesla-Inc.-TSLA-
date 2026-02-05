@@ -41,3 +41,58 @@ section{
 .blog-details h3 {
   @apply mb-6 text-2xl font-bold dark:text-white sm:text-[28px] sm:leading-[40px];
 }
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes orbit {
+  from { --angle: 0deg; }
+  to { --angle: 360deg; }
+}
+
+@keyframes colorShift {
+  0%   { color: #E31937; } /* Tesla Red */
+  10%  { color: #ff7b00; } /* Orange Pulse */
+  20%  { color: #ffea00; } /* Warning Yellow */
+  30%  { color: #00ff6a; } /* Success Green */
+  40%  { color: #00f2ff; } /* Electric Blue */
+  50%  { color: #0062ff; } /* Deep Space Blue */
+  60%  { color: #7a00ff; } /* Neural Purple */
+  70%  { color: #ff00f2; } /* Fusion Pink */
+  80%  { color: #ffffff; } /* Pure White */
+  90%  { color: #555555; } /* Stealth Grey */
+  100% { color: #E31937; } /* Back to Red */
+}
+
+.tesla-btn-glow {
+  /* Using currentColor makes the gradient follow the colorShift animation automatically */
+  background: conic-gradient(from var(--angle), transparent 50%, currentColor 100%);
+  animation: 
+    orbit 2s linear infinite, 
+    colorShift 5s linear infinite;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes input-pulse {
+  0% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.05); }
+  50% { box-shadow: 0 0 15px rgba(227, 25, 55, 0.2); }
+  100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.05); }
+}
+
+.input-glow-focus:focus {
+  animation: input-pulse 2s infinite;
+  background: rgba(255, 255, 255, 0.08);
+}
+@keyframes icon-chrome-glow {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(227, 25, 55, 0.4)); }
+  50% { filter: drop-shadow(0 0 8px rgba(227, 25, 55, 0.8)); }
+}
+
+.tesla-icon-glow {
+  animation: icon-chrome-glow 3s ease-in-out infinite;
+}
