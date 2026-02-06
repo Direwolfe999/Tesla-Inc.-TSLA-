@@ -6,8 +6,8 @@ import { headerData } from "./Navigation/menuData";
 import Logo from "./Logo";
 import HeaderLink from "../Header/Navigation/HeaderLink";
 import MobileHeaderLink from "../Header/Navigation/MobileHeaderLink";
-import Signin from "@/components/Auth/SignIn";
-import SignUp from "@/components/Auth/SignUp";
+import Signin from "@/components/auth/SignIn";
+import SignUp from "@/components/auth/SignUp";
 import { useTheme } from "next-themes";
 import { Icon } from "@iconify/react";
 import ThemeToggler from "./ThemeToggler";
@@ -33,20 +33,28 @@ const Header: React.FC = () => {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
+        isSignInOpen &&
         signInRef.current &&
         !signInRef.current.contains(event.target as Node)
       )
         setIsSignInOpen(false);
       if (
+        isSignUpOpen &&
         signUpRef.current &&
         !signUpRef.current.contains(event.target as Node)
       )
         setIsSignUpOpen(false);
       if (
+        navbarOpen &&
         mobileMenuRef.current &&
         !mobileMenuRef.current.contains(event.target as Node)
-      )
-        setNavbarOpen(false);
+      ) {
+        // Only close if we didn't click the hamburger button itself (to avoid double toggle)
+        const hamburger = document.getElementById("hamburger-toggle");
+        if (hamburger && !hamburger.contains(event.target as Node)) {
+          setNavbarOpen(false);
+        }
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -105,8 +113,9 @@ const Header: React.FC = () => {
 
             {/* Hamburger (Mobile Toggle) with Gradient Feel */}
             <button
+              id="hamburger-toggle"
               onClick={() => setNavbarOpen(!navbarOpen)}
-              className="lg:hidden flex flex-col gap-1.5 p-2 group"
+              className="lg:hidden flex flex-col gap-1.5 p-2 group relative z-[80]"
             >
               {/* TOP LINE: Stealth Gray */}
               <span
@@ -133,21 +142,25 @@ const Header: React.FC = () => {
         </div>
       </div>
 
+      {/* Background Overlay for Mobile Menu Outside Click */}
+      {navbarOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[65] lg:hidden"
+          onClick={() => setNavbarOpen(false)}
+        />
+      )}
+
       {/* Mobile Menu - Steel Gradient Layout */}
       <div
+        ref={mobileMenuRef}
         className={`fixed top-0 right-0 h-full w-80 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] transform transition-transform duration-500 z-[70] ${
           navbarOpen ? "translate-x-0" : "translate-x-full"
-        } bg-gradient-to-br from-[#E2E8F0] via-[#CBD5E1] to-[#94A3B8] dark:bg-darkmode dark:from-transparent dark:to-transparent border-l border-white/20`}
+        } bg-gradient-to-br from-[#E2E8F0] via-[#CBD5E1] to-[#94A3B8] dark:bg-darkmode dark:from-transparent dark:to-transparent border-l border-white/20 overflow-y-auto`}
       >
-        <div className="p-8 h-full flex flex-col">
+        <div className="p-8 min-h-full flex flex-col">
           <div className="flex justify-between items-center mb-12">
             <Logo />
-            <button
-              onClick={() => setNavbarOpen(false)}
-              className="text-[#0F172A] dark:text-white"
-            >
-              <Icon icon="tabler:x" width="32" />
-            </button>
+            {/* The Tabler X button was removed from here as requested */}
           </div>
           <nav className="flex flex-col gap-2">
             {headerData.map((item, index) => (
@@ -155,13 +168,19 @@ const Header: React.FC = () => {
             ))}
             <div className="mt-8 flex flex-col gap-4">
               <button
-                onClick={() => setIsSignInOpen(true)}
+                onClick={() => {
+                  setIsSignInOpen(true);
+                  setNavbarOpen(false);
+                }}
                 className={`w-full py-3 rounded-xl font-bold ${gradientOutline}`}
               >
                 SIGN IN
               </button>
               <button
-                onClick={() => setIsSignUpOpen(true)}
+                onClick={() => {
+                  setIsSignUpOpen(true);
+                  setNavbarOpen(false);
+                }}
                 className={`w-full py-3 rounded-xl font-bold ${gradientPrimary}`}
               >
                 SIGN UP
@@ -173,10 +192,10 @@ const Header: React.FC = () => {
 
       {/* Auth Modals */}
       {(isSignInOpen || isSignUpOpen) && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
           <div
             ref={isSignInOpen ? signInRef : signUpRef}
-            className="relative w-full max-w-md bg-white dark:bg-darkmode border border-black/5 dark:border-white/10 rounded-3xl p-10 shadow-2xl"
+            className="relative w-full max-w-md bg-white dark:bg-darkmode border border-black/5 dark:border-white/10 rounded-3xl p-10 shadow-2xl overflow-y-auto max-h-[90vh]"
           >
             <button
               onClick={() => {

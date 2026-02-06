@@ -1,0 +1,69 @@
+ {/* NEWS */}
+      <div className="bg-dark_grey p-6 rounded-lg">
+        <h2 className="text-2xl mb-3">Stock News</h2>
+        {news.length === 0 ? (
+          <p>No news available</p>
+        ) : (
+          <div className="block md:hidden">
+            <Swiper
+              modules={[Pagination]}
+              pagination={{ clickable: true }}
+              spaceBetween={20}
+              slidesPerView={1}
+            >
+              {news.map((article, index) => (
+                <SwiperSlide key={index}>
+                  <div className="bg-gray-800 p-4 rounded-lg">
+                    {article.banner_image && (
+                      <img
+                        src={article.banner_image}
+                        alt={article.title}
+                        className="w-full h-32 object-cover rounded-t-lg"
+                      />
+                    )}
+                    <h3 className="text-lg font-bold mt-2">{article.title}</h3>
+                    <p className="text-sm text-gray-400">{article.summary}</p>
+                    <a
+                      href={article.url}
+                      className="text-primary hover:underline text-sm"
+                    >
+                      Read more
+                    </a>
+                  </div>
+                </SwiperSlide>
+              ))}
+            </Swiper>
+          </div>
+        )}
+        <div className="hidden md:block">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {news.slice(0, visibleNews).map((article, index) => (
+              <div key={index} className="bg-gray-800 p-4 rounded-lg">
+                {article.banner_image && (
+                  <img
+                    src={article.banner_image}
+                    alt={article.title}
+                    className="w-full h-32 object-cover rounded-t-lg"
+                  />
+                )}
+                <h3 className="text-lg font-bold mt-2">{article.title}</h3>
+                <p className="text-sm text-gray-400">{article.summary}</p>
+                <a
+                  href={article.url}
+                  className="text-primary hover:underline text-sm"
+                >
+                  Read more
+                </a>
+              </div>
+            ))}
+          </div>
+          {visibleNews < news.length && (
+            <button
+              onClick={() => setVisibleNews(visibleNews + 6)}
+              className="mt-4 bg-primary text-white px-4 py-2 rounded-lg"
+            >
+              Load more
+            </button>
+          )}
+        </div>
+      </div>

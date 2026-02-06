@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Header from "@/components/Layout/Header";
 import Footer from "@/components/Layout/Footer";
+import ScrollToTop from "@/components/ScrollToTop"; // Import it here instead
 
 export default function LayoutWrapper({
   children,
@@ -10,13 +11,23 @@ export default function LayoutWrapper({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const noHeaderFooterRoutes = ["/profile", "/settings"];
+
+  const isDashboard = pathname.startsWith("/dashboard");
+  const isProfile = pathname.startsWith("/profile");
+  const isSettings = pathname.startsWith("/settings");
+
+  const hideLayout = isDashboard || isProfile || isSettings;
 
   return (
     <>
-      {!noHeaderFooterRoutes.includes(pathname) && <Header />}
+      {!hideLayout && <Header />}
+
       {children}
-      {!noHeaderFooterRoutes.includes(pathname) && <Footer />}
+
+      {!hideLayout && <Footer />}
+
+      {/* Now it only shows on regular pages, and hides on Dashboard */}
+      {!hideLayout && <ScrollToTop />}
     </>
   );
 }

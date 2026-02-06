@@ -16,14 +16,19 @@ const config: Config = {
       boxShadow: {
         'cause-shadow': '0px 4px 17px 0px #00000008',
       },
-    animation: {
-        'neural-rotate': 'neural-rotate 8s linear infinite',
-      },
       keyframes: {
         'neural-rotate': {
           'from': { transform: 'rotate(0deg) scale(2)' },
           'to': { transform: 'rotate(360deg) scale(2)' },
         },
+        "progress-indefinite": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(300%)" },
+        },
+      },
+      animation: {
+        "progress-indefinite": "progress-indefinite 1.5s infinite linear",
+        'neural-rotate': 'neural-rotate 8s linear infinite',
       },
       transitionDuration: {
         '150': '150ms',
@@ -70,7 +75,7 @@ const config: Config = {
         darkmode: "#000510",
         darklight: "#0c372a",
         dark_border: "#959595",
-        tealGreen : "#477E70",
+        tealGreen: "#477E70",
         charcoalGray: "#666C78",
         deepSlate: "#282C36",
         slateGray: "#2F3543",
@@ -104,7 +109,9 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require("tailwindcss-animate"),
+  ],
 };
 
 export default config;

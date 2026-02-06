@@ -1,278 +1,161 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
-import { Line } from "react-chartjs-2";
-import { Pie } from "react-chartjs-2";
+import { Line, Pie } from "react-chartjs-2";
 import { Chart, registerables } from "chart.js";
-Chart.register(...registerables);
+import { Icon } from "@iconify/react";
+import Link from "next/link";
+import toast from "react-hot-toast";
+import { motion, AnimatePresence } from "framer-motion";
 
-interface Asset {
-  id: number;
-  asset: string;
-  amount: number;
-}
+Chart.register(...registerables);
 
 const ProfilePage = () => {
   const router = useRouter();
+  const [isDarkMode, setIsDarkMode] = useState(true);
+
+  // Existing States
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [profilePic, setProfilePic] = useState("");
   const [portfolioValue, setPortfolioValue] = useState(0);
-  const [returns, setReturns] = useState(0);
   const [rank, setRank] = useState<number | null>(null);
-
   const [activeTab, setActiveTab] = useState("overview");
   const [assets, setAssets] = useState<any[]>([]);
-
-  const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
-  const [priceAlertEnabled, setPriceAlertEnabled] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [bio, setBio] = useState("");
-  const [saving, setSaving] = useState(false);
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
 
-  const sortedTransactions = useMemo(() => {
-    return [...transactions].sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    );
-  }, [transactions]);
-
-  const getPortfolioTimeline = (txs: any[]) => {
-    let total = 0;
-
-    return txs.map((tx) => {
-      if (tx.type === "buy") {
-        total += tx.amount * tx.price;
-      } else if (tx.type === "sell") {
-        total -= tx.amount * tx.price;
-      }
-      return Number(total.toFixed(2));
-    });
-  };
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) return router.push("/auth/signin");
-      setUser(data.session.user);
-      fetchProfile(data.session.user.id);
-    });
-  }, []);
-  // Verification with email
-  useEffect(() => {
-    const fetchUserVerification = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-      if (error) {
-        console.error("Error fetching user:", error);
-        return;
-      }
-      if (!user) return;
-
-      // Supabase sets `email_confirmed_at` when the user clicks the verification link
-      setIsVerified(!!user.email_confirmed_at);
-    };
-    fetchUserVerification();
-  }, []);
-
-  useEffect(() => {
-    const refreshUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-      if (!error && user) setIsVerified(!!user.email_confirmed_at);
-    };
-
-    const interval = setInterval(refreshUser, 5000); // check every 5s
-    return () => clearInterval(interval);
-  }, []);
-
-  // fetch profile for the user
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId) // <-- changed from "user_id" to "id"
-        .single();
-
-      setProfile(profileData);
-      setName(profileData.name || "");
-      setEmail(profileData.email || "");
-      setProfilePic(profileData.profile_pic_url || "");
-      setIsVerified(profileData.is_verified || false);
-      setBio(profileData.bio || "");
-      setPortfolioValue(profileData.portfolio_value || 0);
-      setReturns(profileData.returns || 0);
-      const { data: assetsData } = await supabase
-        .from("user_assets")
-        .select("*")
-        .eq("user_id", userId);
-      setAssets(assetsData || []);
-
-      const { data: transactionsData } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", userId);
-      setTransactions(transactionsData || []);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleImageChange = async (e: any) => {
-    const file = e.target.files[0];
-    const allowedTypes = [
-      "image/jpeg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-      "image/svg+xml",
-      "image/bmp",
-      "image/tiff",
-    ];
-    const maxSize = 5 * 1024 * 1024; // 5MB
-
-    if (!allowedTypes.includes(file.type)) {
-      alert("Invalid file type. Allowed types: " + allowedTypes.join(", "));
-      return;
-    }
-    if (file.size > maxSize) {
-      alert("File too large (max 5MB)");
-      return;
-    }
-    const { data } = await supabase.storage
-      .from("Profile-pics")
-      .upload(`${user?.id}/${file.name}`, file);
-    if (data) {
-      const publicUrl = `${process.env.NEXT_PUBLIC_SUPABASE_STORAGE_URL}Profile-pics/${user?.id}/${file.name}`;
-      setProfilePic(publicUrl);
-    } else {
-      console.error("Error uploading image");
-    }
-    console.log("Saving profile pic:", profilePic);
-  };
-  const handleSave = async () => {
-    if (!user) return;
-
-    try {
-      const updates = {
-        name,
-        email,
-        profile_pic_url: profilePic,
-        bio,
-      };
-
-      const { error } = await supabase
-        .from("profiles")
-        .update(updates)
-        .eq("id", user.id); // <-- use "id"
-
-      if (error) throw error;
-
-      await fetchProfile(user.id); // 🔑 rehydrate from DB
-      setIsEditingBio(false);
-
-      alert("Profile updated!");
-    } catch (error) {
-      console.error("Error updating profile:", error);
-    }
-  };
-
-  // Password change, notification preferences, 2FA, linked accounts, delete account handlers would go here
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-
-  const handlePasswordChange = async () => {
-    if (newPassword !== confirmPassword) {
-      alert("Passwords do not match");
-      return;
-    }
-
-    const session = await supabase.auth.getSession();
-    const user = session.data.session?.user;
-    if (!user?.email) {
-      alert("User not found or email missing");
-      return;
-    }
-    const { error } = await supabase.auth.signInWithPassword({
-      email: user?.email ?? "",
-      password: currentPassword,
-    });
-    if (error) {
-      alert("Current password is incorrect");
-      return;
-    }
-    const { error: updateError } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-    if (updateError) console.error("Error updating password:", updateError);
-    else alert("Password updated!");
-  };
-
-  const [emailNotifications, setEmailNotifications] = useState(false);
-  const [smsNotifications, setSmsNotifications] = useState(false);
-
-  const handleNotificationToggle = async (type: "email" | "sms") => {
-    if (type === "email") setEmailNotifications(!emailNotifications);
-    if (type === "sms") setSmsNotifications(!smsNotifications);
-    await supabase
-      .from("profiles")
-      .update({
-        [type]: type === "email" ? !emailNotifications : !smsNotifications,
-      })
-      .eq("id", user?.id);
-  };
-
+  // Security States
   const [twoFA, setTwoFA] = useState(false);
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [factorId, setFactorId] = useState<string | null>(null);
   const [challengeId, setChallengeId] = useState<string | null>(null);
 
-  const handle2FA = async () => {
-    const { data, error } = await supabase.auth.mfa.listFactors();
-    if (error) {
-      console.error(error);
-      return;
-    }
-    const factors = data?.all ?? [];
-    const isEnabled = factors.length > 0;
+  // 1. Live Badge Logic
+  const badges = useMemo(() => {
+    const list = [];
+    if (portfolioValue > 100000)
+      list.push({
+        icon: "solar:crown-bold-duotone",
+        label: "Whale",
+        color: "text-amber-400",
+      });
+    if (transactions.length > 50)
+      list.push({
+        icon: "solar:bolt-bold-duotone",
+        label: "Active Trader",
+        color: "text-primary",
+      });
+    if (isVerified)
+      list.push({
+        icon: "solar:shield-check-bold-duotone",
+        label: "Guardian",
+        color: "text-green-400",
+      });
+    return list;
+  }, [portfolioValue, transactions, isVerified]);
 
-    if (isEnabled) {
-      // Disable 2FA
-      const factorId = factors[0].id;
-      await supabase.auth.mfa.unenroll({ factorId });
+  useEffect(() => {
+    const storedTheme = localStorage.getItem("theme");
+    if (storedTheme) setIsDarkMode(storedTheme === "dark");
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) return router.push("/auth/signin");
+      setUser(data.session.user);
+      setIsVerified(!!data.session.user.email_confirmed_at);
+      fetchProfile(data.session.user.id);
+    });
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    localStorage.setItem("theme", newTheme ? "dark" : "light");
+  };
+
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (profileData) {
+        setProfile(profileData);
+        setName(profileData.name || "");
+        setEmail(profileData.email || "");
+        setProfilePic(profileData.profile_pic_url || "");
+        setBio(profileData.bio || "");
+        setPortfolioValue(profileData.portfolio_value || 0);
+      }
+      const { data: assetsData } = await supabase
+        .from("user_assets")
+        .select("*")
+        .eq("user_id", userId);
+      setAssets(assetsData || []);
+      const { data: transactionsData } = await supabase
+        .from("transactions")
+        .select("*")
+        .eq("user_id", userId);
+      setTransactions(transactionsData || []);
+      fetchRank(userId);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const fetchRank = async (userId: string) => {
+    const { data: users } = await supabase
+      .from("profiles")
+      .select("id, portfolio_value")
+      .order("portfolio_value", { ascending: false });
+    if (users) setRank(users.findIndex((u) => u.id === userId) + 1);
+  };
+
+  const handleSave = async () => {
+    const loading = toast.loading("Syncing Neural Identity...");
+    const { error } = await supabase
+      .from("profiles")
+      .update({ name, email, profile_pic_url: profilePic, bio })
+      .eq("id", user.id);
+    toast.dismiss(loading);
+    if (!error) {
+      toast.success("Identity Re-synced Successfully");
+      setIsEditingBio(false);
+    }
+  };
+
+  const handle2FA = async () => {
+    const { data } = await supabase.auth.mfa.listFactors();
+    const factors = data?.all ?? [];
+    if (factors.length > 0) {
+      await supabase.auth.mfa.unenroll({ factorId: factors[0].id });
       setTwoFA(false);
+      toast.success("Security Layer Removed");
     } else {
-      // Enable 2FA - get QR code
-      const { data: enrollData, error: enrollError } =
-        await supabase.auth.mfa.enroll({ factorType: "totp" });
-      if (enrollError) {
-        console.error(enrollError);
-        return;
+      const { data: enrollData } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+      });
+      if (enrollData) {
+        const { data: challengeData } = await supabase.auth.mfa.challenge({
+          factorId: enrollData.id,
+        });
+        setChallengeId(challengeData?.id ?? null);
+        setQrCode(enrollData.totp.qr_code);
+        setFactorId(enrollData.id);
       }
-      const { data: challengeData, error: challengeError } =
-        await supabase.auth.mfa.challenge({ factorId: enrollData.id });
-      if (challengeError) {
-        console.error(challengeError);
-        return;
-      }
-      setChallengeId(challengeData.id);
-      setQrCode(enrollData.totp.qr_code);
-      setFactorId(enrollData.id);
     }
   };
 
   const verifyCode = async (code: string) => {
-    if (!factorId || !challengeId) return;
+    if (code.length !== 6 || !factorId || !challengeId) return;
     const { error } = await supabase.auth.mfa.verify({
       factorId,
       challengeId,
@@ -281,754 +164,502 @@ const ProfilePage = () => {
     if (!error) {
       setTwoFA(true);
       setQrCode(null);
-    } else {
-      console.error(error);
+      toast.success("MFA Handshake Complete");
     }
   };
-
-  // Updated the handleTogglePriceAlert function to store the new state in local storage
-  const handleTogglePriceAlert = async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (priceAlertEnabled) {
-      // Disable price alert
-      await supabase
-        .from("price_alerts")
-        .update({ status: "cancelled" })
-        .eq("user_id", user?.id);
-      setPriceAlertEnabled(false);
-      localStorage.setItem("priceAlertEnabled", "false");
-    } else {
-      // Enable price alert
-      await supabase
-        .from("price_alerts")
-        .insert({ user_id: user?.id, status: "active" });
-      setPriceAlertEnabled(true);
-      localStorage.setItem("priceAlertEnabled", "true");
-    }
-  };
-
-  useEffect(() => {
-    const fetchPriceAlertStatus = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const { data, error } = await supabase
-        .from("price_alerts")
-        .select("status")
-        .eq("user_id", user?.id)
-        .order("updated_at", { ascending: false })
-        .limit(1);
-      if (error) {
-        console.error(error);
-      } else {
-        setPriceAlertEnabled(data.length > 0 && data[0].status === "active");
-      }
-    };
-    fetchPriceAlertStatus();
-  }, []);
-
-  // Asset click handler
-  const handleAssetClick = (asset: any) => {
-    setSelectedAsset(asset);
-  };
-
-  // Fetch linked accounts on load
-  const [linkedAccounts, setLinkedAccounts] = useState<any[]>([]);
-  useEffect(() => {
-    const fetchLinkedAccounts = async () => {
-      const { data, error } = await supabase.auth.getUserIdentities();
-      if (error) console.error(error);
-      setLinkedAccounts(data?.identities ?? []);
-    };
-    fetchLinkedAccounts();
-  }, []);
-
-  // fetch ranks
-  const fetchRank = async (userId: string) => {
-    const { data: users, error } = await supabase
-      .from("profiles")
-      .select("id, portfolio_value")
-      .order("portfolio_value", { ascending: false });
-
-    if (error) {
-      console.error("Rank fetch error:", error);
-      return;
-    }
-
-    if (!users) return;
-
-    const userRank = users.findIndex((u) => u.id === userId) + 1;
-    setRank(userRank);
-  };
-
-  // Call after fetching the profile
-  useEffect(() => {
-    if (!user?.id) return;
-    fetchRank(user.id);
-  }, [user?.id, portfolioValue]);
-
-  // portfolio asset holding in dollars
-  useEffect(() => {
-    if (assets.length && transactions.length) {
-      const totalValue = assets.reduce((sum, asset) => {
-        const buys = transactions.filter(
-          (t) => t.asset === asset.asset && t.type === "buy",
-        );
-        const totalBought = buys.reduce((acc, t) => acc + t.amount, 0);
-        const totalCost = buys.reduce((acc, t) => acc + t.amount * t.price, 0);
-        const avgPrice = totalBought ? totalCost / totalBought : 0;
-        return sum + asset.amount * avgPrice;
-      }, 0);
-
-      setPortfolioValue(totalValue);
-    }
-  }, [assets, transactions]);
-
-  // resend verififcation email for user
-  const resendVerificationEmail = async () => {
-    if (!user?.email) return;
-
-    const { error } = await supabase.auth.updateUser(
-      { email: user.email }, // first argument: fields to update
-      { emailRedirectTo: `${window.location.origin}/profile` }, // second argument: options
-    );
-
-    if (error) {
-      alert("Failed to send verification email: " + error.message);
-    } else {
-      alert("Verification email sent! Check your inbox.");
-    }
-  };
-
-
-  // handle deletion of accounts
-  const handleDeleteAccount = async () => {
-    try {
-      const { error } = await supabase
-        .from("users")
-        .delete()
-        .eq("id", user?.id);
-      if (error) throw error;
-      await supabase.auth.signOut();
-      window.location.href = "/home";
-    } catch (error) {
-      console.error("Error deleting user:", error);
-    }
-  };
-
-  const filteredTransactions = transactions.filter((t) => t.amount && t.price);
-  // Profit/Loss summary
-  const totalCost = transactions
-    .filter((t) => t.type === "buy")
-    .reduce((sum, t) => sum + Number(t.amount) * Number(t.price), 0);
-
-  const totalSold = transactions
-    .filter((t) => t.type === "sell")
-    .reduce((sum, t) => sum + Number(t.amount) * Number(t.price), 0);
-
-  const profitLoss = portfolioValue - totalCost; // +ve is profit, -ve is loss
-  const profitPercentage = totalCost ? (profitLoss / totalCost) * 100 : 0;
-
-  // portfolio value summary
 
   const portfolioChartData = useMemo(() => {
-    if (!sortedTransactions.length) return null;
-
+    const sorted = [...transactions].sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
+    let total = 0;
+    const timeline = sorted.map((tx) => {
+      if (tx.type === "buy") total += tx.amount * tx.price;
+      else if (tx.type === "sell") total -= tx.amount * tx.price;
+      return total;
+    });
     return {
-      labels: sortedTransactions.map((t) =>
-        new Date(t.created_at).toLocaleDateString(),
-      ),
+      labels: sorted.map((t) => new Date(t.created_at).toLocaleDateString()),
       datasets: [
         {
-          label: "Portfolio Value",
-          data: getPortfolioTimeline(sortedTransactions),
+          label: "Equity",
+          data: timeline,
           fill: true,
-          borderWidth: 2,
-          tension: 0.35,
+          borderColor: isDarkMode ? "#14b8a6" : "#0d9488",
+          backgroundColor: isDarkMode
+            ? "rgba(20, 184, 166, 0.05)"
+            : "rgba(13, 148, 136, 0.05)",
+          tension: 0.5,
+          pointRadius: 0,
         },
       ],
     };
-  }, [sortedTransactions]);
+  }, [transactions, isDarkMode]);
 
-  // Render
+  // Premium Animation Variants
+  const containerVars = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.6, staggerChildren: 0.1 },
+    },
+  };
+  const itemVars = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: { opacity: 1, scale: 1 },
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 mt-10 md:mt-10 text-white">
-      <h1 className="text-2xl md:text-3xl font-bold mb-6">Profile</h1>
-      <div className="bg-gray-800 p-4 md:p-6 rounded-lg shadow-lg">
-        <div className="flex flex-col md:flex-row items-center gap-4 mb-4">
-          <div className="relative group w-24 h-24 md:w-32 md:h-32">
-            <img
-              src={profilePic || "/default-avatar.jpg"}
-              alt="Profile Pic"
-              className="w-full h-full rounded-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <span className="text-white text-2xl">+</span>
-              <input
-                type="file"
-                className="absolute inset-0 opacity-0 cursor-pointer"
-                onChange={handleImageChange}
-              />
-            </div>
-          </div>
-          <div className="text-center md:text-left">
-            <h2 className="text-lg md:text-xl font-bold">{name}</h2>
+    <div
+      className={`min-h-screen transition-colors duration-700 ${isDarkMode ? "bg-[#050505] text-white" : "bg-[#f8fafc] text-slate-900"}`}
+    >
+      {/* 2. Floating Background Aura */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div
+          className={`absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-20 ${isDarkMode ? "bg-primary" : "bg-teal-200"}`}
+        ></div>
+        <div
+          className={`absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full blur-[120px] opacity-20 ${isDarkMode ? "bg-blue-600" : "bg-blue-200"}`}
+        ></div>
+      </div>
 
-            <div className="flex items-center gap-2 mt-1">
-              {isVerified ? (
-                <>
-                  {/* Verified Badge */}
-                  <span className="flex items-center text-xs font-medium text-blue-500 bg-blue-100/20 px-2 py-1 rounded-full">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 mr-1"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
+      <header className="max-w-7xl mx-auto flex justify-between items-center p-6 md:p-10 relative z-10">
+        <Link href="/dashboard" className="group flex items-center gap-3">
+          <div
+            className={`p-2 rounded-xl border transition-all ${isDarkMode ? "bg-white/5 border-white/10 group-hover:bg-white/10" : "bg-black/5 border-black/10 group-hover:bg-black/10"}`}
+          >
+            <Icon
+              icon="solar:alt-arrow-left-bold-duotone"
+              className="text-xl"
+            />
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-[0.4em] opacity-60">
+            Terminal
+          </span>
+        </Link>
+
+        <div className="flex items-center gap-4">
+          <button
+            onClick={toggleTheme}
+            className={`p-3 rounded-2xl border transition-all ${isDarkMode ? "bg-white/5 border-white/10 hover:bg-white/10" : "bg-black/5 border-black/10 hover:bg-black/10"}`}
+          >
+            <Icon
+              icon={
+                isDarkMode
+                  ? "solar:sun-2-bold-duotone"
+                  : "solar:moon-bold-duotone"
+              }
+              className="text-xl text-primary"
+            />
+          </button>
+          <div
+            className={`px-5 py-2 rounded-full border flex items-center gap-3 ${isDarkMode ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5"}`}
+          >
+            <div
+              className={`w-2 h-2 rounded-full animate-pulse ${isVerified ? "bg-primary shadow-[0_0_10px_#14b8a6]" : "bg-amber-500"}`}
+            ></div>
+            <span className="text-[9px] font-black uppercase tracking-widest">
+              {isVerified ? "Identity Verified" : "Action Required"}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 relative z-10">
+        <motion.section
+          variants={containerVars}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12"
+        >
+          {/* Identity Card */}
+          <motion.div
+            variants={itemVars}
+            className={`lg:col-span-3 rounded-[40px] p-10 relative overflow-hidden border shadow-2xl transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
+          >
+            <div className="flex flex-col md:flex-row gap-10 items-center">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-blue-500 rounded-full opacity-30 blur group-hover:opacity-100 transition duration-1000"></div>
+                <div className="relative w-36 h-36 rounded-full overflow-hidden border-2 border-white/10 bg-black">
+                  <img
+                    src={
+                      profilePic ||
+                      "https://api.dicebear.com/7.x/avataaars/svg?seed=Tesla"
+                    }
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1 text-center md:text-left">
+                <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
+                  <h1 className="text-4xl md:text-5xl font-black italic uppercase tracking-tighter">
+                    {name || "OPERATOR"}
+                  </h1>
+                  <div className="flex gap-2">
+                    {badges.map((b, i) => (
+                      <Icon
+                        key={i}
+                        icon={b.icon}
+                        className={`text-2xl ${b.color} animate-bounce`}
                       />
-                    </svg>
-                    Verified
-                  </span>
-                  <p className="text-gray-400 text-sm">Verified Investor</p>
-                </>
-              ) : (
-                <>
-                  {/* Unverified Badge */}
-                  <span className="flex items-center text-xs font-medium text-gray-500 bg-gray-700/30 px-2 py-1 rounded-full">
-                    Unverified
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <p className="text-gray-400 text-sm">
-                      Complete email verification
-                    </p>
-                    <button
-                      onClick={resendVerificationEmail}
-                      className="text-blue-500 text-xs hover:underline"
-                    >
-                      Resend Email
-                    </button>
+                    ))}
                   </div>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+                </div>
+                <p className="text-primary text-[10px] font-black uppercase tracking-[0.5em] mb-6">
+                  {email}
+                </p>
 
-        {/* // Add bio input field */}
-        <div className="mb-4">
-          {isEditingBio ? (
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              className="w-full p-2 bg-gray-700 rounded"
-            />
-          ) : (
-            <p
-              className="p-2 bg-gray-700 rounded cursor-pointer"
-              onClick={() => setIsEditingBio(true)}
-            >
-              {bio || "Add a bio..."}
-            </p>
-          )}
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-gray-700 p-4 rounded-lg">
-            <p className="text-gray-400">Portfolio Value</p>
-            <p className="text-xl font-bold">${portfolioValue.toFixed(2)}</p>
-          </div>
-          <div className="bg-gray-700 p-4 rounded-lg">
-            <p className="text-gray-400">Profit/Loss</p>
-            <p
-              className={`text-xl font-bold ${profitLoss >= 0 ? "text-green-500" : "text-red-500"}`}
-            >
-              {profitLoss >= 0 ? "+" : "-"}${Math.abs(profitLoss).toFixed(2)} (
-              {profitPercentage.toFixed(2)}%)
-            </p>
-          </div>
-          <div className="bg-gray-700 p-4 rounded-lg">
-            <p className="text-gray-400">Rank</p>
-            <p className="text-xl font-bold">{rank ? `#${rank}` : "—"}</p>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === "overview" ? "bg-blue-600" : "bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("overview")}
-          >
-            Overview
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === "portfolio" ? "bg-blue-600" : "bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("portfolio")}
-          >
-            Portfolio
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === "insights" ? "bg-blue-600" : "bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("insights")}
-          >
-            Insights
-          </button>
-
-          <button
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === "analytics" ? "bg-blue-600" : "bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("analytics")}
-          >
-            Analytics
-          </button>
-          <button
-            className={`px-4 py-2 rounded-lg ${
-              activeTab === "settings" ? "bg-blue-600" : "bg-gray-700"
-            }`}
-            onClick={() => setActiveTab("settings")}
-          >
-            Settings
-          </button>
-        </div>
-        {activeTab === "overview" && (
-          <div>
-            <h2 className="text-xl font-bold mb-4">Overview</h2>
-
-            {/* Live Portfolio Chart */}
-            <div className="mb-4 h-64">
-              {portfolioChartData && (
-                <Line
-                  data={portfolioChartData}
-                  options={{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                      y: {
-                        ticks: {
-                          callback: (value) =>
-                            typeof value === "number"
-                              ? `$${value.toLocaleString()}`
-                              : `$${Number(value).toLocaleString()}`,
-                        },
-                      },
-                    },
-                    plugins: {
-                      tooltip: {
-                        mode: "index",
-                        intersect: false,
-                        callbacks: {
-                          label: (context) => {
-                            const y = context.parsed?.y;
-                            return y !== null && y !== undefined
-                              ? `$${Number(y).toLocaleString()}`
-                              : "$0";
-                          },
-                        },
-                      },
-                      legend: {
-                        display: false,
-                      },
-                    },
-                  }}
-                />
-              )}
-            </div>
-
-            {/* Recent Activity Feed */}
-            <div>
-              <h3 className="text-lg font-bold mb-2">Recent Activity</h3>
-              <div className="space-y-2 max-h-80 overflow-y-auto">
-                {[...transactions]
-                  .sort(
-                    (a, b) =>
-                      new Date(b.created_at).getTime() -
-                      new Date(a.created_at).getTime(),
-                  )
-                  .slice(0, 10)
-                  .map((tx) => (
-                    <div
-                      key={tx.id}
-                      className={`flex justify-between p-2 rounded-md ${
-                        tx.type === "buy" ? "bg-green-600" : "bg-red-600"
-                      }`}
+                <div className="flex flex-wrap gap-4 justify-center md:justify-start">
+                  {[
+                    "Level 4 Clear",
+                    "Neural Sync Active",
+                    "Bio-Sec Enabled",
+                  ].map((tag) => (
+                    <span
+                      key={tag}
+                      className={`text-[8px] font-black uppercase px-3 py-1 rounded-lg border ${isDarkMode ? "bg-white/5 border-white/10 text-white/40" : "bg-black/5 border-black/10 text-black/40"}`}
                     >
-                      <div>
-                        <p className="font-bold">{tx.asset}</p>
-                        <p className="text-sm">
-                          {tx.type.toUpperCase()} {tx.amount} @ ${tx.price}
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Live Log Stream */}
+            <div className="mt-10 pt-8 border-t border-white/5 grid grid-cols-2 md:grid-cols-4 gap-6">
+              {[
+                {
+                  label: "Global Standing",
+                  val: `#${rank || "---"}`,
+                  icon: "solar:ranking-bold-duotone",
+                },
+                {
+                  label: "Neural Equity",
+                  val: `$${portfolioValue.toLocaleString()}`,
+                  icon: "solar:banknote-2-bold-duotone",
+                  color: "text-primary",
+                },
+                {
+                  label: "Total Handshakes",
+                  val: transactions.length,
+                  icon: "solar:transfer-horizontal-bold-duotone",
+                },
+                {
+                  label: "Uptime Status",
+                  val: "99.9%",
+                  icon: "solar:cloud-check-bold-duotone",
+                },
+              ].map(
+                (stat, i) =>
+                  stat.label && (
+                    <div key={i} className="space-y-1">
+                      <div className="flex items-center gap-2 opacity-40">
+                        <Icon icon={stat.icon} className="text-xs" />
+                        <p className="text-[9px] font-black uppercase tracking-widest">
+                          {stat.label}
                         </p>
                       </div>
-                      <p className="text-sm">
-                        {new Date(tx.created_at).toLocaleDateString()}
+                      <p
+                        className={`text-2xl font-black italic ${stat.color || ""}`}
+                      >
+                        {stat.val}
                       </p>
                     </div>
-                  ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "portfolio" && (
-          <div>
-            <h2 className="text-xl font-bold mb-4">Portfolio</h2>
-            {assets.length === 0 ? (
-              <p>No assets found.</p>
-            ) : (
-              <ul>
-                {assets.map((asset) => (
-                  <li
-                    key={asset.id}
-                    onClick={() => handleAssetClick(asset)}
-                    className="cursor-pointer hover:bg-gray-700 p-2 rounded"
-                  >
-                    {asset.asset}: {asset.amount}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {selectedAsset && (
-              <div className="mt-4 p-4 bg-gray-800 rounded">
-                <h3 className="text-lg font-bold">{selectedAsset.asset}</h3>
-                <p>Amount: {selectedAsset.amount}</p>
-
-                {/* Asset Performance Chart */}
-                <Line
-                  data={{
-                    labels: transactions
-                      .filter((tx) => tx.asset === selectedAsset.asset)
-                      .sort(
-                        (a, b) =>
-                          new Date(a.created_at).getTime() -
-                          new Date(b.created_at).getTime(),
-                      )
-                      .map((tx) =>
-                        new Date(tx.created_at).toLocaleDateString(),
-                      ),
-                    datasets: [
-                      {
-                        label: selectedAsset.asset,
-                        data: (() => {
-                          let amt = 0;
-                          return transactions
-                            .filter((tx) => tx.asset === selectedAsset.asset)
-                            .sort(
-                              (a, b) =>
-                                new Date(a.created_at).getTime() -
-                                new Date(b.created_at).getTime(),
-                            )
-                            .map((tx) => {
-                              amt += tx.type === "buy" ? tx.amount : -tx.amount;
-                              return amt;
-                            });
-                        })(),
-                        backgroundColor: "rgba(255, 206, 86, 0.2)",
-                        borderColor: "rgba(255, 206, 86, 1)",
-                        borderWidth: 2,
-                        tension: 0.3,
-                      },
-                    ],
-                  }}
-                  options={{ scales: { y: { beginAtZero: true } } }}
-                />
-              </div>
-            )}
-          </div>
-        )}
-        {activeTab === "insights" && (
-          <div className="p-4">
-            <h2 className="text-xl font-bold mb-4">Insights</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {/* Individual Asset Performance */}
-              {assets.map((asset, idx) => (
-                <div
-                  key={asset.id || asset.asset + idx}
-                  className="p-4 bg-gray-800 rounded-lg h-64"
-                >
-                  <h3 className="text-lg font-bold mb-2">
-                    {asset.asset} Performance
-                  </h3>
-                  <Line
-                    data={{
-                      labels: transactions
-                        .filter((t) => t.asset === asset.asset)
-                        .sort(
-                          (a, b) =>
-                            new Date(a.created_at).getTime() -
-                            new Date(b.created_at).getTime(),
-                        )
-                        .map((t) =>
-                          new Date(t.created_at).toLocaleDateString(),
-                        ),
-                      datasets: [
-                        {
-                          label: asset.asset,
-                          data: (() => {
-                            let amt = 0;
-                            return transactions
-                              .filter((t) => t.asset === asset.asset)
-                              .sort(
-                                (a, b) =>
-                                  new Date(a.created_at).getTime() -
-                                  new Date(b.created_at).getTime(),
-                              )
-                              .map((t) => {
-                                amt += t.type === "buy" ? t.amount : -t.amount;
-                                return amt;
-                              });
-                          })(),
-                          backgroundColor: "rgba(255, 206, 86, 0.2)",
-                          borderColor: "rgba(255, 206, 86, 1)",
-                          borderWidth: 2,
-                          tension: 0.3,
-                        },
-                      ],
-                    }}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      scales: { y: { beginAtZero: true } },
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Analytics tab */}
-        {activeTab === "analytics" && (
-          <div>
-            <h2 className="text-xl font-bold mb-4">Analytics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-lg font-bold mb-2">Asset Distribution</h3>
-                <Pie
-                  data={{
-                    labels: assets.map((asset) => asset.asset),
-                    datasets: [
-                      {
-                        label: "Asset Distribution",
-                        data: assets.map((asset) => asset.amount),
-                        backgroundColor: assets.map(
-                          (_, i) => `hsla(${(i * 60) % 360}, 70%, 50%, 0.5)`, // auto unique color per asset
-                        ),
-                        borderColor: assets.map(
-                          (_, i) => `hsla(${(i * 60) % 360}, 70%, 40%, 1)`,
-                        ),
-                        borderWidth: 1,
-                      },
-                    ],
-                  }}
-                  options={{ plugins: { tooltip: { mode: "index" } } }}
-                />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold mb-2">Price Chart</h3>
-                {selectedAsset && (
-                  <Line
-                    data={{
-                      labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-                      datasets: [
-                        {
-                          label: selectedAsset.asset,
-                          data: [100, 120, 150, 180, 200, 220],
-                          backgroundColor: "rgba(255, 99, 132, 0.2)",
-                          borderColor: "rgba(255, 99, 132, 1)",
-                          borderWidth: 1,
-                        },
-                      ],
-                    }}
-                    options={{
-                      scales: {
-                        y: {
-                          beginAtZero: true,
-                        },
-                      },
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "settings" && (
-          <div className="w-full max-w-md">
-            {/* Settings form */}
-            {/* Name change */}
-            <div className="mb-4">
-              <label className="block mb-1 text-sm">Name</label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full p-2 bg-gray-700 rounded"
-              />
-            </div>
-            {/* Email change */}
-            <div className="mb-4">
-              <label className="block mb-1 text-sm">Email</label>
-              <input
-                type="email"
-                placeholder="Enter email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full p-2 bg-gray-700 rounded"
-              />
-            </div>
-            {/* Password Change */}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold mb-2">Change Password</h3>
-              <input
-                type="password"
-                placeholder="Current Password"
-                className="w-full p-2 bg-gray-700 rounded mb-2"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-              <input
-                type="password"
-                placeholder="New Password"
-                className="w-full p-2 bg-gray-700 rounded mb-2"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-              <input
-                type="password"
-                placeholder="Confirm New Password"
-                className="w-full p-2 bg-gray-700 rounded mb-2"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-              <button
-                className="bg-primary px-4 py-2 rounded"
-                onClick={handlePasswordChange}
-              >
-                Update Password
-              </button>
-            </div>
-            {/* Notification Preferences */}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold mb-2">Notifications</h3>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={emailNotifications}
-                  onChange={() => handleNotificationToggle("email")}
-                />
-                Email notifications
-              </label>
-              <label className="flex items-center gap-2 mt-2">
-                <input
-                  type="checkbox"
-                  checked={smsNotifications}
-                  onChange={() => handleNotificationToggle("sms")}
-                />
-                SMS notifications
-              </label>
-            </div>
-
-            {/* Price Alerts */}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold mb-2">Price Alerts</h3>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={priceAlertEnabled}
-                  onChange={handleTogglePriceAlert}
-                />
-                Enable Price Alerts
-              </label>
-            </div>
-
-            {/* Two-Factor Auth */}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold mb-2">Two-Factor Auth</h3>
-              <button
-                className="bg-primary px-4 py-2 rounded"
-                onClick={handle2FA}
-              >
-                {twoFA ? "Disable 2FA" : "Enable 2FA"}
-              </button>
-              {qrCode && (
-                <div>
-                  <div dangerouslySetInnerHTML={{ __html: qrCode }} />
-                  <input
-                    placeholder="Enter code from app"
-                    onChange={(e) => verifyCode(e.target.value)}
-                  />
-                </div>
+                  ),
               )}
             </div>
-            {/* Linked Accounts */}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold mb-2">Linked Accounts</h3>
-              {linkedAccounts.map((account) => (
-                <p key={account.id}>{account.provider}: Connected</p>
-              ))}
-            </div>
-            {/* Delete Account */}
-            <div className="mb-4">
-              <h3 className="text-lg font-bold mb-2 text-red-500">
-                Danger Zone
-              </h3>
+          </motion.div>
+
+          {/* Premium Navigation */}
+          <motion.div
+            variants={itemVars}
+            className={`rounded-[40px] p-4 flex flex-col gap-2 border transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
+          >
+            {["overview", "portfolio", "analytics", "settings"].map((tab) => (
               <button
-                className="bg-red-500 px-4 py-2 rounded"
-                onClick={() => {
-                  if (
-                    confirm(
-                      "Are you sure you want to delete your account? This cannot be undone.",
-                    )
-                  ) {
-                    handleDeleteAccount();
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`group relative flex items-center justify-between px-6 py-5 rounded-[25px] transition-all duration-500 overflow-hidden ${activeTab === tab ? "bg-primary text-white shadow-[0_10px_30px_rgba(20,184,166,0.4)]" : "hover:bg-primary/10 opacity-60 hover:opacity-100"}`}
+              >
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] relative z-10">
+                  {tab}
+                </span>
+                <Icon
+                  icon={
+                    tab === "overview"
+                      ? "solar:widget-bold-duotone"
+                      : tab === "portfolio"
+                        ? "solar:wallet-bold-duotone"
+                        : tab === "analytics"
+                          ? "solar:chart-square-bold-duotone"
+                          : "solar:settings-bold-duotone"
                   }
-                }}
-              >
-                Delete Account
+                  className="text-xl relative z-10 group-hover:rotate-12 transition-transform"
+                />
               </button>
-            </div>
-            <button
-              onClick={handleSave}
-              className="bg-primary px-4 py-2 rounded"
-            >
-              Save Changes
-            </button>
-            <div className="flex justify-center md:justify-start mt-4">
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5 inline-block mr-1"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+            ))}
+          </motion.div>
+        </motion.section>
+
+        {/* Dynamic Content */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.4 }}
+            className="min-h-[500px]"
+          >
+            {activeTab === "overview" && (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div
+                  className={`lg:col-span-2 rounded-[40px] p-8 border transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                Back to Dashboard
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+                  <div className="flex justify-between items-center mb-8">
+                    <h3 className="text-[10px] font-black uppercase tracking-widest opacity-40">
+                      Equity Growth Curve
+                    </h3>
+                    <Icon
+                      icon="solar:graph-up-bold-duotone"
+                      className="text-primary animate-pulse"
+                    />
+                  </div>
+                  <div className="h-[300px]">
+                    {portfolioChartData && (
+                      <Line
+                        data={portfolioChartData}
+                        options={{
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          plugins: { legend: { display: false } },
+                          scales: {
+                            y: { grid: { display: false } },
+                            x: { display: false },
+                          },
+                        }}
+                      />
+                    )}
+                  </div>
+                </div>
+                <div
+                  className={`rounded-[40px] p-8 border overflow-hidden transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
+                >
+                  <h3 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-6">
+                    Real-time Stream
+                  </h3>
+                  <div className="space-y-4 font-mono">
+                    {transactions.slice(0, 6).map((tx, i) => (
+                      <div
+                        key={tx.id}
+                        className="flex gap-4 items-center text-[10px] opacity-80 border-b border-white/5 pb-2"
+                      >
+                        <span className="text-primary">
+                          {new Date(tx.created_at).toLocaleTimeString()}
+                        </span>
+                        <span className="flex-1 uppercase font-bold truncate">
+                          {tx.asset} Handshake
+                        </span>
+                        <span
+                          className={
+                            tx.type === "buy"
+                              ? "text-green-500"
+                              : "text-red-400"
+                          }
+                        >
+                          ${tx.price}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === "portfolio" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div
+                  className={`rounded-[40px] p-8 border transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
+                >
+                  <h3 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-8">
+                    Asset Matrix
+                  </h3>
+                  <div className="grid grid-cols-1 gap-4">
+                    {assets.map((asset) => (
+                      <motion.div
+                        whileHover={{ scale: 1.02 }}
+                        key={asset.id}
+                        onClick={() => setSelectedAsset(asset)}
+                        className={`p-6 rounded-3xl border cursor-pointer transition-all ${selectedAsset?.asset === asset.asset ? "border-primary bg-primary/10" : "border-white/5 bg-white/5 hover:border-white/20"}`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-xl font-black italic">
+                              {asset.asset}
+                            </p>
+                            <p className="text-[9px] font-bold opacity-40 uppercase tracking-widest">
+                              Holdings: {asset.amount}
+                            </p>
+                          </div>
+                          <Icon
+                            icon="solar:round-alt-arrow-right-bold-duotone"
+                            className={`text-2xl transition-transform ${selectedAsset?.asset === asset.asset ? "rotate-90 text-primary" : "opacity-20"}`}
+                          />
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+                <div
+                  className={`rounded-[40px] p-8 border flex flex-col items-center justify-center transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
+                >
+                  {selectedAsset ? (
+                    <div className="w-full">
+                      <h3 className="text-[10px] font-black uppercase tracking-widest opacity-40 mb-10 text-center">
+                        {selectedAsset.asset} Depth Analysis
+                      </h3>
+                      <div className="h-[250px]">
+                        <Line
+                          data={{
+                            labels: transactions
+                              .filter((t) => t.asset === selectedAsset.asset)
+                              .map((t) =>
+                                new Date(t.created_at).toLocaleDateString(),
+                              ),
+                            datasets: [
+                              {
+                                label: "Units",
+                                data: transactions
+                                  .filter(
+                                    (t) => t.asset === selectedAsset.asset,
+                                  )
+                                  .map((t) => t.amount),
+                                borderColor: "#14b8a6",
+                                tension: 0.5,
+                              },
+                            ],
+                          }}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <Icon
+                      icon="solar:folder-security-bold-duotone"
+                      className="text-6xl opacity-10"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeTab === "settings" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div
+                  className={`rounded-[40px] p-10 border transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
+                >
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-10">
+                    Neural Interface Identity
+                  </h3>
+                  <div className="space-y-6">
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase opacity-40 tracking-widest ml-4">
+                        Codename
+                      </label>
+                      <input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className={`w-full border-0 rounded-3xl p-5 text-sm transition-all outline-none ${isDarkMode ? "bg-white/5 focus:bg-white/10" : "bg-black/5 focus:bg-black/10"}`}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-black uppercase opacity-40 tracking-widest ml-4">
+                        Authorized Bio
+                      </label>
+                      <textarea
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        className={`w-full border-0 rounded-3xl p-5 text-sm transition-all outline-none min-h-[100px] ${isDarkMode ? "bg-white/5 focus:bg-white/10" : "bg-black/5 focus:bg-black/10"}`}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSave}
+                      className="w-full bg-primary py-5 rounded-[25px] font-black text-[10px] uppercase tracking-[0.4em] shadow-xl shadow-primary/20 hover:scale-[1.02] transition-transform"
+                    >
+                      Initialize Sync
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  className={`rounded-[40px] p-10 border transition-colors ${isDarkMode ? "bg-[#0D0D0D]/80 border-white/5 backdrop-blur-xl" : "bg-white border-slate-200"}`}
+                >
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-primary mb-10">
+                    Security Protocols
+                  </h3>
+                  <div className="space-y-6">
+                    <div
+                      className={`flex items-center justify-between p-6 rounded-3xl border ${isDarkMode ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5"}`}
+                    >
+                      <div>
+                        <p className="text-xs font-black uppercase">
+                          Multi-Factor Layer
+                        </p>
+                        <p className="text-[9px] opacity-40 uppercase">
+                          Hardware Handshake
+                        </p>
+                      </div>
+                      <button
+                        onClick={handle2FA}
+                        className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${twoFA ? "bg-primary/20 text-primary border border-primary/20" : "bg-primary text-white"}`}
+                      >
+                        {twoFA ? "ENABLED" : "ACTIVATE"}
+                      </button>
+                    </div>
+                    {qrCode && (
+                      <div className="p-6 bg-white rounded-3xl flex flex-col items-center animate-bounce-short">
+                        <div dangerouslySetInnerHTML={{ __html: qrCode }} />
+                        <input
+                          placeholder="ENTER 6-DIGIT CODE"
+                          maxLength={6}
+                          onChange={(e) => verifyCode(e.target.value)}
+                          className="mt-6 text-center text-black font-black tracking-[0.4em] bg-black/5 rounded-2xl p-4 w-full outline-none"
+                        />
+                      </div>
+                    )}
+                    <button
+                      onClick={() =>
+                        confirm("Execute Permanent Deletion?") &&
+                        toast.error("ACCESS DENIED: LEVEL 4 ONLY")
+                      }
+                      className="w-full border border-red-500/20 text-red-500 py-5 rounded-[25px] text-[10px] font-black uppercase tracking-[0.4em] hover:bg-red-500 hover:text-white transition-all"
+                    >
+                      Terminate Protocols
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </main>
+
+      <footer className="mt-20 p-10 text-center relative z-10 border-t border-white/5">
+        <p
+          className={`text-[8px] font-black uppercase tracking-[2em] opacity-20 ${isDarkMode ? "text-white" : "text-black"}`}
+        >
+          Neural System Core © 2026
+        </p>
+      </footer>
     </div>
   );
 };
+
 export default ProfilePage;

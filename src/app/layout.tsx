@@ -1,3 +1,5 @@
+"use client";
+
 import { DM_Sans } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Layout/Header";
@@ -7,6 +9,7 @@ import ScrollToTop from "@/components/ScrollToTop";
 import Aoscompo from "@/utils/aos";
 import ToasterContext from "@/app/api/contex/ToasetContex";
 import "swiper/css";
+import { usePathname } from "next/navigation"; // Import this
 
 import LayoutWrapper from "@/components/LayoutWrapper";
 
@@ -19,24 +22,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={`${font.className} 
-          /* Light Mode Defaults */
-          bg-white text-black 
-          /* Dark Mode Overrides */
-          dark:bg-gradient-to-b dark:from-slate-900 dark:to-indigo-950 dark:text-white 
-          min-h-screen`}
-      >
+      <body className={`${font.className} bg-white dark:bg-[#050505]`}>
         <ThemeProvider
           attribute="class"
           enableSystem={true}
-          defaultTheme="system" // This will follow the user's OS preference
+          defaultTheme="dark"
         >
           <Aoscompo>
+            {/* The Wrapper below now handles the logic you pasted! */}
             <LayoutWrapper>{children}</LayoutWrapper>
           </Aoscompo>
           <ToasterContext />
-          <ScrollToTop />
+          {/* <ScrollToTop /> */}
         </ThemeProvider>
       </body>
     </html>
