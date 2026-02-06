@@ -21,6 +21,7 @@ const Hero: React.FC = () => {
       router.push("/auth/SignUp");
     }
   };
+  
 
   return (
     <section

@@ -88,6 +88,7 @@ const Apex: React.FC = () => {
                     {service.text}
                   </p>
                 </div>
+                
               ))}
             </div>
           </motion.div>

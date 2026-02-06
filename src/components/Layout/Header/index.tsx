@@ -6,8 +6,8 @@ import { headerData } from "./Navigation/menuData";
 import Logo from "./Logo";
 import HeaderLink from "../Header/Navigation/HeaderLink";
 import MobileHeaderLink from "../Header/Navigation/MobileHeaderLink";
-import Signin from "@/components/auth/SignIn";
-import SignUp from "@/components/auth/SignUp";
+import Signin from "@/app/auth/signin/page";
+import SignUp from "@/app/auth/signup/page";
 import { useTheme } from "next-themes";
 import { Icon } from "@iconify/react";
 import ThemeToggler from "./ThemeToggler";
@@ -49,7 +49,6 @@ const Header: React.FC = () => {
         mobileMenuRef.current &&
         !mobileMenuRef.current.contains(event.target as Node)
       ) {
-        // Only close if we didn't click the hamburger button itself (to avoid double toggle)
         const hamburger = document.getElementById("hamburger-toggle");
         if (hamburger && !hamburger.contains(event.target as Node)) {
           setNavbarOpen(false);
@@ -71,10 +70,7 @@ const Header: React.FC = () => {
     <header
       className={`fixed top-0 z-40 w-full transition-all duration-300 ${
         sticky
-          ? /* FORCED LIGHT MODE COLOR: bg-grey (your #cecece) 
-         DARK MODE COLOR: bg-darkmode (your #000510)
-      */
-            "shadow-xl bg-grey dark:bg-darkmode border-b border-gray-300 dark:border-white/5 py-2"
+          ? "shadow-xl bg-grey dark:bg-darkmode border-b border-gray-300 dark:border-white/5 py-2"
           : "bg-transparent py-4"
       }`}
     >
@@ -111,27 +107,22 @@ const Header: React.FC = () => {
               </div>
             )}
 
-            {/* Hamburger (Mobile Toggle) with Gradient Feel */}
+            {/* Hamburger (Mobile Toggle) */}
             <button
               id="hamburger-toggle"
               onClick={() => setNavbarOpen(!navbarOpen)}
               className="lg:hidden flex flex-col gap-1.5 p-2 group relative z-[80]"
             >
-              {/* TOP LINE: Stealth Gray */}
               <span
                 className={`block w-6 h-0.5 transition-all duration-300 ${
                   navbarOpen ? "rotate-45 translate-y-2" : ""
                 } ${sticky || theme === "dark" ? "bg-success" : "bg-[#1E2229]"}`}
               ></span>
-
-              {/* Middle Bar: Primary Green (The "Gradient" pop) */}
               <span
                 className={`block w-6 h-0.5 transition-all duration-300 ${
                   navbarOpen ? "opacity-0" : "opacity-100"
                 } ${sticky || theme === "dark" ? "bg-primary" : "bg-[#3cd278]"}`}
               ></span>
-
-              {/* BOTTOM LINE: Stealth Gray */}
               <span
                 className={`block w-6 h-0.5 transition-all duration-300 ${
                   navbarOpen ? "-rotate-45 -translate-y-2" : ""
@@ -150,7 +141,7 @@ const Header: React.FC = () => {
         />
       )}
 
-      {/* Mobile Menu - Steel Gradient Layout */}
+      {/* Mobile Menu */}
       <div
         ref={mobileMenuRef}
         className={`fixed top-0 right-0 h-full w-80 shadow-[-10px_0_30px_rgba(0,0,0,0.1)] transform transition-transform duration-500 z-[70] ${
@@ -160,7 +151,6 @@ const Header: React.FC = () => {
         <div className="p-8 min-h-full flex flex-col">
           <div className="flex justify-between items-center mb-12">
             <Logo />
-            {/* The Tabler X button was removed from here as requested */}
           </div>
           <nav className="flex flex-col gap-2">
             {headerData.map((item, index) => (
@@ -190,23 +180,36 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Auth Modals */}
+      {/* Auth Modals - Updated for High-Fidelity SignUp Form */}
       {(isSignInOpen || isSignUpOpen) && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[100] flex items-center justify-center p-4 md:p-10">
           <div
             ref={isSignInOpen ? signInRef : signUpRef}
-            className="relative w-full max-w-md bg-white dark:bg-darkmode border border-black/5 dark:border-white/10 rounded-3xl p-10 shadow-2xl overflow-y-auto max-h-[90vh]"
+            className={`relative w-full ${
+              isSignUpOpen ? "max-w-[1250px]" : "max-w-md"
+            } transition-all duration-500 transform`}
           >
+            {/* Modal Close Button */}
             <button
               onClick={() => {
                 setIsSignInOpen(false);
                 setIsSignUpOpen(false);
               }}
-              className="absolute top-6 right-6 text-gray-400 hover:text-primary transition-colors"
+              className="absolute -top-12 right-0 md:-top-4 md:-right-12 z-[110] text-white/50 hover:text-primary hover:scale-110 transition-all"
             >
-              <Icon icon="tabler:x" width="28" />
+              <Icon icon="solar:close-circle-bold-duotone" width="40" />
             </button>
-            {isSignInOpen ? <Signin /> : <SignUp />}
+
+            <div className="bg-transparent overflow-hidden rounded-[40px] md:rounded-[60px]">
+              {isSignInOpen ? (
+                <div className="bg-white dark:bg-darkmode p-10 rounded-[40px] border border-white/10 shadow-2xl">
+                  <Signin />
+                </div>
+              ) : (
+                /* The SignUp component already handles its own internal styling/layout */
+                <SignUp />
+              )}
+            </div>
           </div>
         </div>
       )}

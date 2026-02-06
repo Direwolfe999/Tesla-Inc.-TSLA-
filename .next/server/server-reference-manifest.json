@@ -2,13 +2,17 @@
   "node": {
     "05fe1c7b6a090d4dcc8b1fc428116ce4493c1831": {
       "workers": {
-        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fhome%2Fdirewolfe-x%2FPROJECTS%2FVS%20code%20Projects%2FTesla-X%20Stock%20Investment%2Fsrc%2Fapp%2Factions.ts%22%2C%5B%22getTeslaAnalysis%22%5D%5D%5D&__client_imported__=true!"
+        "app/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fhome%2Fdirewolfe-x%2FPROJECTS%2FVS%20code%20Projects%2FTesla-X%20Stock%20Investment%2Fsrc%2Fapp%2Factions.ts%22%2C%5B%22getTeslaAnalysis%22%5D%5D%5D&__client_imported__=true!",
+        "app/profile/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fhome%2Fdirewolfe-x%2FPROJECTS%2FVS%20code%20Projects%2FTesla-X%20Stock%20Investment%2Fsrc%2Fapp%2Factions.ts%22%2C%5B%22getTeslaAnalysis%22%5D%5D%5D&__client_imported__=true!",
+        "app/dashboard/page": "(action-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fhome%2Fdirewolfe-x%2FPROJECTS%2FVS%20code%20Projects%2FTesla-X%20Stock%20Investment%2Fsrc%2Fapp%2Factions.ts%22%2C%5B%22getTeslaAnalysis%22%5D%5D%5D&__client_imported__=true!"
       },
       "layer": {
-        "app/page": "action-browser"
+        "app/page": "action-browser",
+        "app/profile/page": "action-browser",
+        "app/dashboard/page": "action-browser"
       }
     }
   },
   "edge": {},
-  "encryptionKey": "F5I63I/JVn3EJCRbtbxXPBo+ywfpTYTbT81G4WkbhKY="
+  "encryptionKey": "Aw1DihaY97WxnmOSmt8iHbmB4qN78RS+cDZTc6NbeOE="
 }

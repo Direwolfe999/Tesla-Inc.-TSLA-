@@ -2,5 +2,7 @@
   "/page": "app/page.js",
   "/dashboard/page": "app/dashboard/page.js",
   "/profile/page": "app/profile/page.js",
+  "/auth/signin/page": "app/auth/signin/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
   "/dashboard/vault/page": "app/dashboard/vault/page.js"
 }

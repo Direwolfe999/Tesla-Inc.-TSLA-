@@ -1,4 +1,4 @@
-import SignUp from "@/components/auth/SignUp";
+import SignUp from "@/app/auth/signup/page";
 import Breadcrumb from "@/components/Common/Breadcrumb";
 import { Metadata } from "next";
 
