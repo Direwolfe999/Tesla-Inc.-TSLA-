@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@iconify/react": "^5.0.1",
+    "@marsidev/react-turnstile": "^1.4.2",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
     "ai": "^6.0.70",

@@ -335,7 +335,7 @@ const ProfilePage = () => {
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 mb-2 text-primary">
                     Available Neural Equity
                   </p>
-                  <p className="text-5xl font-black italic">
+                  <p className="text-4xl font-black italic">
                     ${availableBalance.toLocaleString()}
                   </p>
                   <div className="mt-4 flex justify-between text-[9px] font-bold opacity-30 uppercase tracking-widest">

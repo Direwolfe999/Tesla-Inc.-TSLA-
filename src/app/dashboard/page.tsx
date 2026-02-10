@@ -342,7 +342,7 @@ const [isAiLoading, setIsAiLoading] = useState(false);
                   Global Equity Index
                 </span>
               </div>
-              <h2 className="text-6xl md:text-8xl font-black text-white italic tracking-tighter mb-12">
+              <h2 className="text-4xl md:text-6xl font-black text-white italic tracking-tighter mb-12">
                 $
                 {balance.toLocaleString(undefined, {
                   minimumFractionDigits: 2,
